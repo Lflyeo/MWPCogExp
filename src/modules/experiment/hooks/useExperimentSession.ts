@@ -22,6 +22,8 @@ function initSession(flowId: string, questions: QuestionItem[]): ExperimentSessi
     currentQuestionIndex: 0,
     questions: questions.map((q) => ({
       questionId: q.id,
+      mwpId: q.mwp_id ?? null,
+      level5: q.level5 ?? null,
       events: [],
     })),
     strokes: Object.fromEntries(questions.map((q) => [q.id, []])),

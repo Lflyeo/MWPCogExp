@@ -14,6 +14,7 @@ import { getAssetUrl } from '@/lib/api';
 import { UserProfileFormFields } from '@/components/UserProfileFields';
 import { profileFromUser, profileToPayload, getUserDisplayName } from '@/types/userProfile';
 import type { UserProfileFields } from '@/types/userProfile';
+import { BatchDeleteButton, SelectCheckbox, deleteMany, useRowSelection } from './batchSelect';
 
 export default function AdminUsers() {
   const [list, setList] = useState<AdminUserItem[]>([]);
@@ -33,6 +34,8 @@ export default function AdminUsers() {
   const [createPassword, setCreatePassword] = useState('');
   const [createProfile, setCreateProfile] = useState<UserProfileFields>(profileFromUser(null));
   const [creating, setCreating] = useState(false);
+  const [batchBusy, setBatchBusy] = useState(false);
+  const selection = useRowSelection(list.map((u) => u.id), `${page}|${keyword}`);
 
   const load = (opts?: { page?: number; keyword?: string }) => {
     setLoading(true);
@@ -87,6 +90,25 @@ export default function AdminUsers() {
         load();
       })
       .catch((err) => toast.error(err?.message || '删除失败'));
+  };
+
+  const handleBatchDelete = async () => {
+    const ids = selection.selectedIds;
+    if (ids.length === 0) return;
+    if (!window.confirm(`确定删除选中的 ${ids.length} 名用户？其解题记录将保留但不再关联。`)) return;
+    setBatchBusy(true);
+    try {
+      const { ok, fail } = await deleteMany(ids, async (id) => {
+        const res = await adminUserDelete(id);
+        if (res.errCode !== 0) throw new Error(res.errMsg);
+      });
+      if (fail) toast.error(`已删除 ${ok} 名，失败 ${fail} 名`);
+      else toast.success(`已删除 ${ok} 名用户`);
+      selection.clear();
+      load();
+    } finally {
+      setBatchBusy(false);
+    }
   };
 
   const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -169,6 +191,7 @@ export default function AdminUsers() {
               搜索
             </button>
           </div>
+          <BatchDeleteButton count={selection.count} busy={batchBusy} onClick={() => void handleBatchDelete()} />
           <button
             type="button"
             onClick={() => setCreateModalOpen(true)}
@@ -187,6 +210,9 @@ export default function AdminUsers() {
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-slate-50 z-10">
                 <tr className="border-b border-slate-200">
+                  <th className="text-left py-3 px-4 font-medium text-slate-700 w-10">
+                    <SelectCheckbox checked={selection.allChecked} indeterminate={selection.someChecked} onChange={selection.toggleAll} label="全选本页" />
+                  </th>
                   <th className="text-left py-3 px-4 font-medium text-slate-700 w-16">序号</th>
                   <th className="text-left py-3 px-4 font-medium text-slate-700">用户ID</th>
                   <th className="text-left py-3 px-4 font-medium text-slate-700">头像</th>
@@ -201,6 +227,9 @@ export default function AdminUsers() {
               <tbody>
                 {list.map((u, idx) => (
                   <tr key={u.id} className="border-b border-slate-100 hover:bg-slate-50/50">
+                    <td className="py-3 px-4">
+                      <SelectCheckbox checked={selection.isSelected(u.id)} onChange={() => selection.toggle(u.id)} label={`选择 ${u.id}`} />
+                    </td>
                     <td className="py-3 px-4 text-slate-500 text-sm">
                       {(page - 1) * pageSize + idx + 1}
                     </td>

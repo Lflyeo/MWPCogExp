@@ -18,6 +18,7 @@ import AdminFavorites from "@/pages/admin/AdminFavorites";
 import AdminTest from "@/pages/admin/AdminTest";
 import AdminExperimentQuestions from "@/pages/admin/AdminExperimentQuestions";
 import AdminExperimentData from "@/pages/admin/AdminExperimentData";
+import AdminExperimentSampling from "@/pages/admin/AdminExperimentSampling";
 import ExperimentHomePage from "@/modules/experiment/pages/ExperimentHomePage";
 import ExperimentRunPage from "@/modules/experiment/pages/ExperimentRunPage";
 import { useContext } from "react";
@@ -56,6 +57,7 @@ export default function App() {
         <Route path="records" element={<AdminRecords />} />
         <Route path="favorites" element={<AdminFavorites />} />
         <Route path="experiment-flows" element={<AdminExperimentQuestions />} />
+        <Route path="experiment-sampling" element={<AdminExperimentSampling />} />
         <Route path="experiment-data" element={<AdminExperimentData />} />
         <Route path="test" element={<AdminTest />} />
       </Route>

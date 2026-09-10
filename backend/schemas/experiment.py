@@ -9,6 +9,7 @@ class ExperimentFlowItem(BaseModel):
     question_count: int = 0
     rest_break_enabled: bool = True
     rest_break_seconds: int = 5
+    rest_break_every: int = 1
 
 
 class ExperimentFlowDetailResponse(BaseModel):
@@ -27,6 +28,8 @@ class ExperimentQuestionItem(BaseModel):
     id: str
     title: Optional[str] = None
     content: str
+    mwp_id: Optional[int] = None
+    level5: Optional[str] = None
 
 
 class ExperimentQuestionListResponse(BaseModel):

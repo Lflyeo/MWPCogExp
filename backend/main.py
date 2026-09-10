@@ -11,9 +11,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from config import settings
 from database import SessionLocal
-from routers import records, favorites, solve, auth, admin, experiment
+from routers import records, favorites, solve, auth, admin, experiment, mwps, admin_sampling
 from migrate_experiment import migrate_experiment_schema
 from migrate_user_profile import migrate_user_profile_schema
+from migrate_mwps import migrate_mwps_schema
 
 
 @asynccontextmanager
@@ -30,6 +31,9 @@ async def lifespan(app: FastAPI):
         profile_migrated = migrate_user_profile_schema(db)
         if profile_migrated:
             print(f"[startup] User profile schema migrated: {', '.join(profile_migrated)}")
+        mwps_migrated = migrate_mwps_schema(db)
+        if mwps_migrated:
+            print(f"[startup] MWPs schema migrated: {', '.join(mwps_migrated)}")
         eq = experiment.seed_experiment_flows_and_questions(db)
         if eq > 0:
             print(f"[startup] Seeded experiment flow(s) and question(s) ({eq} records).")
@@ -67,7 +71,9 @@ app.include_router(records.router, prefix=settings.API_V1_PREFIX)
 app.include_router(favorites.router, prefix=settings.API_V1_PREFIX)
 app.include_router(solve.router, prefix=settings.API_V1_PREFIX)
 app.include_router(admin.router, prefix=settings.API_V1_PREFIX)
+app.include_router(admin_sampling.router, prefix=settings.API_V1_PREFIX)
 app.include_router(experiment.router, prefix=settings.API_V1_PREFIX)
+app.include_router(mwps.router, prefix=settings.API_V1_PREFIX)
 
 # 静态文件：头像等上传文件（挂载在 /api/uploads，与 API 同源）
 _upload_dir = _backend_dir / settings.UPLOAD_DIR

@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { Users, Brain, LogOut, Shield, History, Heart, Wifi, FlaskConical, Database } from 'lucide-react';
+import { Users, Brain, LogOut, Shield, History, Heart, Wifi, FlaskConical, Database, Dices } from 'lucide-react';
 import { getAdminToken, clearAdminToken } from '@/services/admin';
 import { useEffect } from 'react';
 
@@ -101,6 +101,17 @@ export default function AdminLayout() {
           >
             <FlaskConical size={18} />
             认知实验流
+          </NavLink>
+          <NavLink
+            to="/admin/experiment-sampling"
+            className={({ isActive }) =>
+              `flex items-center gap-2 px-3 py-2.5 rounded-lg mt-1 ${
+                isActive ? 'bg-slate-700 text-white' : 'text-slate-300 hover:bg-slate-700/50'
+              }`
+            }
+          >
+            <Dices size={18} />
+            分层覆盖抽样
           </NavLink>
           <NavLink
             to="/admin/experiment-data"

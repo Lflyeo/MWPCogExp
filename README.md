@@ -22,7 +22,7 @@ MWPSolver-KS performs structured understanding of math word problems through two
 
 ---
 
-#### Feature Overview
+### Feature Overview
 
 - **Intelligent Solving Workflow**
   - After a problem is entered, the system first invokes the knowledge point recognition model and semantic context recognition model to understand the mathematical concepts and application scenarios involved.
@@ -50,7 +50,7 @@ MWPSolver-KS performs structured understanding of math word problems through two
 
 ---
 
-#### Tech Stack
+### Tech Stack
 
 - **Languages & Frameworks**
   - React 18
@@ -75,7 +75,7 @@ MWPSolver-KS performs structured understanding of math word problems through two
 
 ---
 
-#### Directory Structure (Core)
+### Directory Structure (Core)
 
 Only the main directories closely related to business logic are listed for quick orientation:
 
@@ -129,9 +129,9 @@ MathPro_Web/
 
 ---
 
-#### Routes & Pages
+### Routes & Pages
 
-##### User Routes (`/` prefix)
+#### User Routes (`/` prefix)
 
 - `/`
   - Home page: system introduction, core features, quick links (solve / records / favorites), and recent solving records.
@@ -161,7 +161,7 @@ MathPro_Web/
 
 > Note: Protected user routes are implemented via the `ProtectedRoute` component in `App.tsx`, relying on `isAuthenticated` / `authReady` from `AuthContext`.
 
-##### Admin Routes (`/admin` prefix)
+#### Admin Routes (`/admin` prefix)
 
 - `/admin/login`
   - Admin login.
@@ -184,9 +184,9 @@ MathPro_Web/
 
 ---
 
-#### API & Authentication (Frontend Perspective)
+### API & Authentication (Frontend Perspective)
 
-##### API Base Configuration
+#### API Base Configuration
 
 Defined in `src/lib/api.ts`:
 
@@ -204,7 +204,7 @@ Common wrapper methods:
 
 > Example: `/api/solve/analyze`, `/api/solve/models`, `/api/records/list`, etc. are all built on this base.
 
-##### Authentication
+#### Authentication
 
 - The frontend stores the user token in `localStorage`:
   - Key: `mathpro_token` (see `AUTH_TOKEN_KEY`).
@@ -216,7 +216,7 @@ Common wrapper methods:
 
 ---
 
-#### Environment Variables
+### Environment Variables
 
 Before running or building the project, configure via `.env` or environment variables:
 
@@ -231,20 +231,20 @@ If not configured, defaults to `http://localhost:8000` as the backend address.
 
 ---
 
-#### Local Development
+### Local Development
 
-##### Prerequisites
+#### Prerequisites
 
 - Install [Node.js](https://nodejs.org/en) (18+ recommended)
 - Install [pnpm](https://pnpm.io/installation)
 
-##### Install Dependencies
+#### Install Dependencies
 
 ```sh
 pnpm install
 ```
 
-##### Start Development Server
+#### Start Development Server
 
 ```sh
 # Shortcut
@@ -260,9 +260,9 @@ The frontend dev server starts at `http://localhost:3000` by default.
 
 ---
 
-#### Build & Deployment
+### Build & Deployment
 
-##### Build Frontend Static Assets
+#### Build Frontend Static Assets
 
 ```sh
 # Frontend only
@@ -280,7 +280,7 @@ pnpm build
   - Copies `package.json` to `dist`.
   - Creates `dist/build.flag` (can be used by backend or deploy scripts as a "built" marker).
 
-##### Deployment Recommendations
+#### Deployment Recommendations
 
 - Serve the frontend build output `dist/static` as static assets, hosted by the backend or a static server (e.g., Nginx).
 - All non-static routes (e.g., `/problem-input`, `/admin/users`) should fall back to `index.html` for frontend routing (React Router) to handle.
@@ -288,7 +288,7 @@ pnpm build
 
 ---
 
-#### Solving Workflow (Business Perspective)
+### Solving Workflow (Business Perspective)
 
 Example: a user initiates solving on the `/problem-input` page:
 
@@ -307,7 +307,7 @@ Example: a user initiates solving on the `/problem-input` page:
 
 ---
 
-#### Admin Configuration & Operations
+### Admin Configuration & Operations
 
 - **UniAPI Configuration (Solving LLM API)**
   - Configure in the top card on the "Solving Model Management" page (`/admin/models`):
@@ -336,7 +336,7 @@ Example: a user initiates solving on the `/problem-input` page:
 
 ---
 
-#### FAQ
+### FAQ
 
 - **Q: Frontend shows API errors or blank page after startup?**
   A:
@@ -357,6 +357,6 @@ Example: a user initiates solving on the `/problem-input` page:
 
 ---
 
-#### Acknowledgments
+### Acknowledgments
 
 - Thanks to the open-source community for excellent tooling (React, Vite, TypeScript, Tailwind, lucide-react, sonner, etc.).

@@ -22,3 +22,12 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Python
+__pycache__/
+
+# 上传文件
+backend/uploads/
+
+# 抽样脚本产物（可本地再生）
+backend/sampling/output/

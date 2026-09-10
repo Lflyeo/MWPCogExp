@@ -25,8 +25,42 @@ import {
   formatQuestionContent,
   isImageQuestionContent,
 } from '@/modules/experiment/utils/formatQuestionContent';
+import { BatchDeleteButton, SelectCheckbox, deleteMany, useRowSelection } from './batchSelect';
 
 type ContentMode = 'text' | 'image';
+
+function EnabledSwitch({
+  checked,
+  disabled,
+  onChange,
+}: {
+  checked: boolean;
+  disabled?: boolean;
+  onChange: (enabled: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      title={checked ? '点击停用' : '点击启用'}
+      onClick={(e) => {
+        e.stopPropagation();
+        onChange(!checked);
+      }}
+      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
+        checked ? 'bg-emerald-500' : 'bg-slate-300'
+      }`}
+    >
+      <span
+        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+          checked ? 'translate-x-4' : 'translate-x-0.5'
+        }`}
+      />
+    </button>
+  );
+}
 
 const DEFAULT_TEXT_CONTENT =
   '【题目】\n\n某班共有 40 名学生，其中女生人数是男生人数的 3/5。\n\n(1) 求男生人数；\n(2) 求女生人数。';
@@ -60,6 +94,12 @@ export default function AdminExperimentQuestions() {
   const [questions, setQuestions] = useState<AdminExperimentQuestionItem[]>([]);
   const [loadingFlows, setLoadingFlows] = useState(true);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
+  const [batchBusy, setBatchBusy] = useState(false);
+  const [flowBatchBusy, setFlowBatchBusy] = useState(false);
+  const [togglingFlowId, setTogglingFlowId] = useState<string | null>(null);
+  const [togglingQuestionId, setTogglingQuestionId] = useState<string | null>(null);
+  const flowSelection = useRowSelection(flows.map((f) => f.id));
+  const questionSelection = useRowSelection(questions.map((q) => q.id), selectedFlowId);
 
   const [flowModal, setFlowModal] = useState<'add' | 'edit' | null>(null);
   const [editingFlow, setEditingFlow] = useState<AdminExperimentFlowItem | null>(null);
@@ -70,6 +110,7 @@ export default function AdminExperimentQuestions() {
   const [flowFormEnabled, setFlowFormEnabled] = useState(true);
   const [flowFormRestEnabled, setFlowFormRestEnabled] = useState(true);
   const [flowFormRestSeconds, setFlowFormRestSeconds] = useState(5);
+  const [flowFormRestEvery, setFlowFormRestEvery] = useState(1);
   const [flowSaving, setFlowSaving] = useState(false);
 
   const [qModal, setQModal] = useState<'add' | 'edit' | null>(null);
@@ -138,6 +179,7 @@ export default function AdminExperimentQuestions() {
     setFlowFormEnabled(true);
     setFlowFormRestEnabled(true);
     setFlowFormRestSeconds(5);
+    setFlowFormRestEvery(1);
     setFlowModal('add');
   };
 
@@ -150,6 +192,7 @@ export default function AdminExperimentQuestions() {
     setFlowFormEnabled(flow.enabled);
     setFlowFormRestEnabled(flow.rest_break_enabled ?? true);
     setFlowFormRestSeconds(flow.rest_break_seconds ?? 5);
+    setFlowFormRestEvery(flow.rest_break_every ?? 1);
     setFlowModal('edit');
   };
 
@@ -173,6 +216,7 @@ export default function AdminExperimentQuestions() {
           enabled: flowFormEnabled,
           rest_break_enabled: flowFormRestEnabled,
           rest_break_seconds: flowFormRestSeconds,
+          rest_break_every: Math.max(1, flowFormRestEvery),
         });
         toast.success('已创建实验流');
         setSelectedFlowId(flowFormId.trim());
@@ -184,6 +228,7 @@ export default function AdminExperimentQuestions() {
           enabled: flowFormEnabled,
           rest_break_enabled: flowFormRestEnabled,
           rest_break_seconds: flowFormRestSeconds,
+          rest_break_every: Math.max(1, flowFormRestEvery),
         });
         toast.success('已更新实验流');
       }
@@ -196,6 +241,22 @@ export default function AdminExperimentQuestions() {
     }
   };
 
+  const handleToggleFlowEnabled = async (flow: AdminExperimentFlowItem, enabled: boolean) => {
+    if (togglingFlowId) return;
+    setTogglingFlowId(flow.id);
+    setFlows((prev) => prev.map((f) => (f.id === flow.id ? { ...f, enabled } : f)));
+    try {
+      const res = await adminExperimentFlowUpdate(flow.id, { enabled });
+      if (res.errCode !== 0) throw new Error(res.errMsg);
+      toast.success(enabled ? `已启用「${flow.name}」` : `已停用「${flow.name}」`);
+    } catch (err) {
+      setFlows((prev) => prev.map((f) => (f.id === flow.id ? { ...f, enabled: flow.enabled } : f)));
+      toast.error(err instanceof Error ? err.message : '更新启用状态失败');
+    } finally {
+      setTogglingFlowId(null);
+    }
+  };
+
   const handleDeleteFlow = (flow: AdminExperimentFlowItem) => {
     if (!window.confirm(`确定删除实验流「${flow.name}」？\n其下所有题目也将被删除。`)) return;
     adminExperimentFlowDelete(flow.id)
@@ -205,6 +266,26 @@ export default function AdminExperimentQuestions() {
         loadFlows();
       })
       .catch((err) => toast.error(err?.message || '删除失败'));
+  };
+
+  const handleBatchDeleteFlows = async () => {
+    const ids = flowSelection.selectedIds;
+    if (ids.length === 0) return;
+    if (!window.confirm(`确定删除选中的 ${ids.length} 个实验流？其下题目也将被删除。`)) return;
+    setFlowBatchBusy(true);
+    try {
+      const { ok, fail } = await deleteMany(ids, async (id) => {
+        const res = await adminExperimentFlowDelete(id);
+        if (res.errCode !== 0) throw new Error(res.errMsg);
+      });
+      if (fail) toast.error(`已删除 ${ok} 个实验流，失败 ${fail} 个`);
+      else toast.success(`已删除 ${ok} 个实验流`);
+      if (selectedFlowId && ids.includes(selectedFlowId)) setSelectedFlowId(null);
+      flowSelection.clear();
+      loadFlows();
+    } finally {
+      setFlowBatchBusy(false);
+    }
   };
 
   const resetQuestionForm = () => {
@@ -297,6 +378,21 @@ export default function AdminExperimentQuestions() {
     }
   };
 
+  const handleToggleQuestionEnabled = async (item: AdminExperimentQuestionItem, enabled: boolean) => {
+    if (!selectedFlowId || togglingQuestionId) return;
+    setTogglingQuestionId(item.id);
+    setQuestions((prev) => prev.map((q) => (q.id === item.id ? { ...q, enabled } : q)));
+    try {
+      const res = await adminExperimentFlowQuestionUpdate(selectedFlowId, item.id, { enabled });
+      if (res.errCode !== 0) throw new Error(res.errMsg);
+    } catch (err) {
+      setQuestions((prev) => prev.map((q) => (q.id === item.id ? { ...q, enabled: item.enabled } : q)));
+      toast.error(err instanceof Error ? err.message : '更新题目启用状态失败');
+    } finally {
+      setTogglingQuestionId(null);
+    }
+  };
+
   const handleDeleteQuestion = (item: AdminExperimentQuestionItem) => {
     if (!selectedFlowId) return;
     if (!window.confirm(`确定删除题目「${item.title || item.id}」？`)) return;
@@ -307,6 +403,27 @@ export default function AdminExperimentQuestions() {
         loadFlows();
       })
       .catch((err) => toast.error(err?.message || '删除失败'));
+  };
+
+  const handleBatchDeleteQuestions = async () => {
+    if (!selectedFlowId) return;
+    const ids = questionSelection.selectedIds;
+    if (ids.length === 0) return;
+    if (!window.confirm(`确定删除选中的 ${ids.length} 道题目？`)) return;
+    setBatchBusy(true);
+    try {
+      const { ok, fail } = await deleteMany(ids, async (id) => {
+        const res = await adminExperimentFlowQuestionDelete(selectedFlowId, id);
+        if (res.errCode !== 0) throw new Error(res.errMsg);
+      });
+      if (fail) toast.error(`已删除 ${ok} 道题，失败 ${fail} 道`);
+      else toast.success(`已删除 ${ok} 道题`);
+      questionSelection.clear();
+      loadQuestions(selectedFlowId);
+      loadFlows();
+    } finally {
+      setBatchBusy(false);
+    }
   };
 
   const handleImageUpload = async (file: File) => {
@@ -336,11 +453,27 @@ export default function AdminExperimentQuestions() {
       <div className="flex-1 min-h-0 flex gap-4 overflow-hidden">
         {/* 实验流列表 */}
         <div className="w-72 shrink-0 min-h-0 bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
-          <div className="p-3 border-b border-slate-100 flex items-center justify-between">
-            <span className="text-sm font-medium text-slate-700">实验流</span>
-            <button type="button" onClick={openAddFlow} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600" title="新建实验流">
-              <Plus size={16} />
-            </button>
+          <div className="p-3 border-b border-slate-100 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-medium text-slate-700">实验流</span>
+              <button type="button" onClick={openAddFlow} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600" title="新建实验流">
+                <Plus size={16} />
+              </button>
+            </div>
+            {flows.length > 0 && (
+              <div className="flex items-center justify-between gap-2">
+                <label className="inline-flex items-center gap-1.5 text-xs text-slate-600">
+                  <SelectCheckbox
+                    checked={flowSelection.allChecked}
+                    indeterminate={flowSelection.someChecked}
+                    onChange={flowSelection.toggleAll}
+                    label="全选实验流"
+                  />
+                  全选
+                </label>
+                <BatchDeleteButton count={flowSelection.count} busy={flowBatchBusy} onClick={() => void handleBatchDeleteFlows()} />
+              </div>
+            )}
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto p-2 space-y-1">
             {loadingFlows ? (
@@ -359,9 +492,23 @@ export default function AdminExperimentQuestions() {
                   onClick={() => setSelectedFlowId(flow.id)}
                 >
                   <div className="flex items-start justify-between gap-1">
+                    <div className="flex items-start gap-2 min-w-0">
+                      <SelectCheckbox
+                        checked={flowSelection.isSelected(flow.id)}
+                        onChange={() => flowSelection.toggle(flow.id)}
+                        label={`选择 ${flow.name}`}
+                      />
                     <div className="min-w-0">
                       <div className="text-sm font-medium text-slate-800 truncate">{flow.name}</div>
-                      <div className="text-xs text-slate-400 mt-0.5">{flow.question_count} 题 · {flow.enabled ? '启用' : '禁用'}</div>
+                      <div className="mt-1 flex items-center gap-2">
+                        <span className="text-xs text-slate-400">{flow.question_count} 题</span>
+                        <EnabledSwitch
+                          checked={flow.enabled}
+                          disabled={togglingFlowId === flow.id}
+                          onChange={(enabled) => void handleToggleFlowEnabled(flow, enabled)}
+                        />
+                      </div>
+                    </div>
                     </div>
                     <div className="flex shrink-0" onClick={(e) => e.stopPropagation()}>
                       <button type="button" onClick={() => openEditFlow(flow)} className="p-1 rounded hover:bg-slate-200">
@@ -384,14 +531,22 @@ export default function AdminExperimentQuestions() {
             <>
               <div className="shrink-0 p-4 border-b border-slate-100 flex items-center justify-between">
                 <div>
-                  <div className="flex items-center gap-2 text-slate-800 font-medium">
+                  <div className="flex items-center gap-3 text-slate-800 font-medium">
                     <GitBranch size={16} className="text-slate-500" />
-                    {selectedFlow.name}
+                    <span>{selectedFlow.name}</span>
+                    <EnabledSwitch
+                      checked={selectedFlow.enabled}
+                      disabled={togglingFlowId === selectedFlow.id}
+                      onChange={(enabled) => void handleToggleFlowEnabled(selectedFlow, enabled)}
+                    />
+                    <span className="text-xs font-normal text-slate-500">{selectedFlow.enabled ? '已启用' : '已停用'}</span>
                   </div>
                   {selectedFlow.description && (
                     <p className="text-xs text-slate-500 mt-1">{selectedFlow.description}</p>
                   )}
                 </div>
+                <div className="flex items-center gap-2">
+                  <BatchDeleteButton count={questionSelection.count} busy={batchBusy} onClick={() => void handleBatchDeleteQuestions()} />
                 <button
                   type="button"
                   onClick={openAddQuestion}
@@ -400,6 +555,7 @@ export default function AdminExperimentQuestions() {
                   <Plus size={14} />
                   新增题目
                 </button>
+                </div>
               </div>
               <div className="flex-1 min-h-0 overflow-auto">
                 {loadingQuestions ? (
@@ -410,27 +566,39 @@ export default function AdminExperimentQuestions() {
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 bg-slate-50 z-10">
                       <tr className="border-b border-slate-200">
+                        <th className="text-left py-3 px-4 font-medium text-slate-700 w-10">
+                          <SelectCheckbox checked={questionSelection.allChecked} indeterminate={questionSelection.someChecked} onChange={questionSelection.toggleAll} label="全选题目" />
+                        </th>
                         <th className="text-left py-3 px-4 font-medium text-slate-700">ID</th>
                         <th className="text-left py-3 px-4 font-medium text-slate-700">标题</th>
+                        <th className="text-left py-3 px-4 font-medium text-slate-700">难度</th>
+                        <th className="text-left py-3 px-4 font-medium text-slate-700">MWP</th>
                         <th className="text-left py-3 px-4 font-medium text-slate-700">内容预览</th>
                         <th className="text-left py-3 px-4 font-medium text-slate-700">排序</th>
-                        <th className="text-left py-3 px-4 font-medium text-slate-700">状态</th>
+                        <th className="text-left py-3 px-4 font-medium text-slate-700">启用</th>
                         <th className="text-right py-3 px-4 font-medium text-slate-700">操作</th>
                       </tr>
                     </thead>
                     <tbody>
                       {questions.map((item) => (
                         <tr key={item.id} className="border-b border-slate-100 hover:bg-slate-50/50">
+                          <td className="py-3 px-4">
+                            <SelectCheckbox checked={questionSelection.isSelected(item.id)} onChange={() => questionSelection.toggle(item.id)} label={`选择 ${item.id}`} />
+                          </td>
                           <td className="py-3 px-4 font-mono text-xs">{item.id}</td>
                           <td className="py-3 px-4">{item.title || '-'}</td>
+                          <td className="py-3 px-4">{item.level5 || '-'}</td>
+                          <td className="py-3 px-4 font-mono text-xs">{item.mwp_id ?? '-'}</td>
                           <td className="py-3 px-4 max-w-xs">
                             <div className="line-clamp-2 text-slate-600">{getContentPreviewLabel(item.content)}</div>
                           </td>
                           <td className="py-3 px-4">{item.sort_order}</td>
                           <td className="py-3 px-4">
-                            <span className={`px-2 py-0.5 rounded text-xs ${item.enabled ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                              {item.enabled ? '启用' : '禁用'}
-                            </span>
+                            <EnabledSwitch
+                              checked={item.enabled}
+                              disabled={togglingQuestionId === item.id}
+                              onChange={(enabled) => void handleToggleQuestionEnabled(item, enabled)}
+                            />
                           </td>
                           <td className="py-3 px-4 text-right">
                             <button type="button" onClick={() => openEditQuestion(item)} className="p-1.5 rounded-lg hover:bg-slate-100 mr-1">
@@ -488,6 +656,18 @@ export default function AdminExperimentQuestions() {
                   <input type="checkbox" checked={flowFormRestEnabled} onChange={(e) => setFlowFormRestEnabled(e.target.checked)} />
                   题间启用休息
                 </label>
+                <div>
+                  <label className="block text-sm font-medium mb-1">每完成多少题休息一次</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={flowFormRestEvery}
+                    disabled={!flowFormRestEnabled}
+                    onChange={(e) => setFlowFormRestEvery(Math.max(1, Number(e.target.value) || 1))}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 disabled:bg-slate-50"
+                  />
+                </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">休息时长（秒）</label>
                   <input

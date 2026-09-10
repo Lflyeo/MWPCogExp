@@ -78,7 +78,7 @@ GUIDE_QUESTIONS = [
         "title": "练习：熟悉画板",
         "content": """**【操作练习 · 第 1 题】**
 
-请在下方作答区随意画几笔，尝试切换**橡皮擦**工具。
+请在下方作答区随意画几笔，熟悉画笔工具。
 
 熟悉操作后，请按 **F9** 结束本题。""",
         "sort_order": 0,
@@ -203,6 +203,7 @@ def _flow_item(db: Session, row: ExperimentFlow) -> ExperimentFlowItem:
         question_count=_count_questions(db, row.id),
         rest_break_enabled=bool(getattr(row, "rest_break_enabled", True)),
         rest_break_seconds=int(getattr(row, "rest_break_seconds", 5) or 5),
+        rest_break_every=max(1, int(getattr(row, "rest_break_every", 1) or 1)),
     )
 
 
@@ -245,7 +246,16 @@ def list_flow_questions(flow_id: str, db: Session = Depends(get_db)):
         .order_by(ExperimentQuestion.sort_order, ExperimentQuestion.id)
         .all()
     )
-    data = [ExperimentQuestionItem(id=r.id, title=r.title, content=r.content) for r in rows]
+    data = [
+        ExperimentQuestionItem(
+            id=r.id,
+            title=r.title,
+            content=r.content,
+            mwp_id=getattr(r, "mwp_id", None),
+            level5=getattr(r, "level5", None),
+        )
+        for r in rows
+    ]
     return ExperimentQuestionListResponse(data=data)
 
 

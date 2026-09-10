@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, Text, ForeignKey
+from sqlalchemy import Column, String, DateTime, Text
 from sqlalchemy.sql import func
 from database import Base
 
@@ -7,7 +7,8 @@ class ExperimentSession(Base):
     __tablename__ = "experiment_sessions"
 
     id = Column(String(64), primary_key=True, comment="会话ID")
-    flow_id = Column(String(64), ForeignKey("experiment_flows.id", ondelete="SET NULL"), nullable=True, index=True, comment="实验流ID")
+    # 仅保存实验流 ID 快照，不设外键。删除实验流后仍可按该 ID 查看历史作答。
+    flow_id = Column(String(64), nullable=True, index=True, comment="实验流ID")
     status = Column(String(20), nullable=False, default="ended", comment="实验状态")
     started_at = Column(DateTime, nullable=True, comment="开始时间")
     ended_at = Column(DateTime, nullable=True, comment="结束时间")

@@ -223,7 +223,10 @@ class AdminExperimentFlowItem(BaseModel):
     enabled: bool = True
     rest_break_enabled: bool = True
     rest_break_seconds: int = 5
+    rest_break_every: int = 1
     question_count: int = 0
+    session_count: int = 0
+    archived: bool = False
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
@@ -248,6 +251,7 @@ class AdminExperimentFlowCreateRequest(BaseModel):
     enabled: bool = True
     rest_break_enabled: bool = True
     rest_break_seconds: int = Field(default=5, ge=0, le=300)
+    rest_break_every: int = Field(default=1, ge=1, le=100)
 
 
 class AdminExperimentFlowUpdateRequest(BaseModel):
@@ -257,6 +261,7 @@ class AdminExperimentFlowUpdateRequest(BaseModel):
     enabled: Optional[bool] = None
     rest_break_enabled: Optional[bool] = None
     rest_break_seconds: Optional[int] = Field(default=None, ge=0, le=300)
+    rest_break_every: Optional[int] = Field(default=None, ge=1, le=100)
 
 
 class AdminExperimentQuestionItem(BaseModel):
@@ -266,6 +271,8 @@ class AdminExperimentQuestionItem(BaseModel):
     content: str
     sort_order: int = 0
     enabled: bool = True
+    mwp_id: Optional[int] = None
+    level5: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
@@ -288,6 +295,8 @@ class AdminExperimentQuestionCreateRequest(BaseModel):
     content: str = Field(..., min_length=1)
     sort_order: int = 0
     enabled: bool = True
+    mwp_id: Optional[int] = None
+    level5: Optional[str] = Field(None, max_length=16)
 
 
 class AdminExperimentQuestionUpdateRequest(BaseModel):
@@ -295,6 +304,35 @@ class AdminExperimentQuestionUpdateRequest(BaseModel):
     content: Optional[str] = Field(None, min_length=1)
     sort_order: Optional[int] = None
     enabled: Optional[bool] = None
+    mwp_id: Optional[int] = None
+    level5: Optional[str] = Field(None, max_length=16)
+
+
+class AdminSamplingRunRequest(BaseModel):
+    seed: int = Field(default=20260907)
+    mode: str = Field(default="unused_first", description="unused_first | deal")
+    n_participants: int = Field(default=50, ge=1, le=200)
+    per_level: int = Field(default=3, ge=1, le=20)
+    include_format_diff: bool = False
+    allow_missing_composite_score: bool = False
+    avoid_adjacent_same_level: bool = False
+
+
+class AdminSamplingImportRequest(BaseModel):
+    run_id: Optional[str] = Field(None, description="产物目录名，如 20260907 或 20260907-2")
+    seed: Optional[int] = Field(None, description="兼容旧请求；优先使用 run_id")
+    replace_existing: bool = Field(
+        default=True,
+        description="若 flow-p00x 已存在则替换其题目（并更新流元数据）",
+    )
+    enabled: bool = Field(default=True, description="导入后的实验流是否启用")
+    rest_break_enabled: bool = True
+    rest_break_seconds: int = Field(default=5, ge=0, le=300)
+    rest_break_every: int = Field(default=1, ge=1, le=100, description="每完成多少题休息一次")
+    participant_ids: Optional[List[str]] = Field(
+        default=None,
+        description="仅导入指定被试，如 ['P001','P002']；为空则全部导入",
+    )
 
 
 class AdminExperimentSessionItem(UserProfileFields):

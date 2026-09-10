@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ExperimentOverlayShell } from './ExperimentOverlayShell';
 
 interface ExperimentRestOverlayProps {
@@ -17,21 +17,31 @@ export function ExperimentRestOverlay({
   onComplete,
 }: ExperimentRestOverlayProps) {
   const [remaining, setRemaining] = useState(seconds);
+  const [wasShown, setWasShown] = useState(show);
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
+
+  if (show !== wasShown) {
+    setWasShown(show);
+    if (show && seconds > 0) setRemaining(seconds);
+  }
 
   useEffect(() => {
-    if (!show) return;
+    if (!show || seconds <= 0) return;
+
     setRemaining(seconds);
-  }, [seconds, show]);
+    let left = seconds;
+    const timer = window.setInterval(() => {
+      left -= 1;
+      setRemaining(left);
+      if (left <= 0) {
+        window.clearInterval(timer);
+        onCompleteRef.current();
+      }
+    }, 1000);
 
-  useEffect(() => {
-    if (!show) return;
-    if (remaining <= 0) {
-      onComplete();
-      return;
-    }
-    const timer = window.setTimeout(() => setRemaining((v) => v - 1), 1000);
-    return () => window.clearTimeout(timer);
-  }, [onComplete, remaining, show]);
+    return () => window.clearInterval(timer);
+  }, [seconds, show]);
 
   return (
     <ExperimentOverlayShell show={show} backdropClassName="bg-neutral-900/85">

@@ -12,10 +12,13 @@ import {
   type AdminSolveModelItem,
   type AdminUniapiConfig,
 } from '@/services/admin';
+import { BatchDeleteButton, SelectCheckbox, deleteMany, useRowSelection } from './batchSelect';
 
 export default function AdminModels() {
   const [list, setList] = useState<AdminSolveModelItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [batchBusy, setBatchBusy] = useState(false);
+  const selection = useRowSelection(list.map((m) => String(m.id)));
   const [modal, setModal] = useState<'add' | 'edit' | null>(null);
   const [editing, setEditing] = useState<AdminSolveModelItem | null>(null);
   const [formModelId, setFormModelId] = useState('');
@@ -192,6 +195,25 @@ export default function AdminModels() {
       .catch((err) => toast.error(err?.message || '删除失败'));
   };
 
+  const handleBatchDelete = async () => {
+    const ids = selection.selectedIds;
+    if (ids.length === 0) return;
+    if (!window.confirm(`确定删除选中的 ${ids.length} 个解题模型？`)) return;
+    setBatchBusy(true);
+    try {
+      const { ok, fail } = await deleteMany(ids, async (id) => {
+        const res = await adminSolveModelDelete(Number(id));
+        if (res.errCode !== 0) throw new Error(res.errMsg);
+      });
+      if (fail) toast.error(`已删除 ${ok} 个，失败 ${fail} 个`);
+      else toast.success(`已删除 ${ok} 个模型`);
+      selection.clear();
+      load();
+    } finally {
+      setBatchBusy(false);
+    }
+  };
+
   return (
     <div className="h-full min-h-0 flex flex-col">
       <div className="mb-6 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -283,6 +305,8 @@ export default function AdminModels() {
 
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-slate-800">解题大模型列表</h2>
+        <div className="flex items-center gap-2">
+          <BatchDeleteButton count={selection.count} busy={batchBusy} onClick={() => void handleBatchDelete()} />
         <button
           type="button"
           onClick={openAdd}
@@ -291,6 +315,7 @@ export default function AdminModels() {
           <Plus size={18} />
           新增模型
         </button>
+        </div>
       </div>
       <p className="text-sm text-slate-500 mb-4">
         此处配置的是可供前端选择的模型 ID 列表，与上方接口配置共同决定最终调用的大模型。
@@ -307,6 +332,9 @@ export default function AdminModels() {
             <table className="w-full text-sm table-fixed">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="text-left py-3 px-4 font-medium text-slate-700 w-10">
+                    <SelectCheckbox checked={selection.allChecked} indeterminate={selection.someChecked} onChange={selection.toggleAll} label="全选" />
+                  </th>
                   <th className="text-left py-3 px-4 font-medium text-slate-700">模型 ID</th>
                   <th className="text-left py-3 px-4 font-medium text-slate-700">展示名称</th>
                   <th className="text-left py-3 px-4 font-medium text-slate-700">排序</th>
@@ -320,6 +348,9 @@ export default function AdminModels() {
                 <tbody>
                   {list.map((m) => (
                     <tr key={m.id} className="border-b border-slate-100 hover:bg-slate-50/50">
+                      <td className="py-3 px-4">
+                        <SelectCheckbox checked={selection.isSelected(String(m.id))} onChange={() => selection.toggle(String(m.id))} label={`选择 ${m.display_name}`} />
+                      </td>
                       <td className="py-3 px-4 font-mono text-slate-700">{m.model_id}</td>
                       <td className="py-3 px-4">{m.display_name}</td>
                       <td className="py-3 px-4">{m.sort_order}</td>

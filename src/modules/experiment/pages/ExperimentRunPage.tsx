@@ -40,6 +40,7 @@ export default function ExperimentRunPage() {
   const captureRef = useRef<HTMLDivElement>(null);
   const answerCanvasRef = useRef<AnswerCanvasHandle>(null);
   const processingRef = useRef(false);
+  const restingRef = useRef(false);
   const questionPanelRef = useRef<HTMLDivElement>(null);
   const canvasSectionRef = useRef<HTMLElement>(null);
   const runKeysRef = useRef<HTMLDivElement>(null);
@@ -177,7 +178,7 @@ export default function ExperimentRunPage() {
   }, [currentQuestionId, flowId, isQuestionFinished, session.sessionId, setQuestionSnapshot]);
 
   const handleFinishQuestion = useCallback(async () => {
-    if (processingRef.current || isResting || !currentQuestionId || isGuideTourRun) return;
+    if (processingRef.current || restingRef.current || isResting || !currentQuestionId || isGuideTourRun) return;
     processingRef.current = true;
     try {
       await captureCurrentSnapshot();
@@ -190,7 +191,10 @@ export default function ExperimentRunPage() {
 
       const restEnabled = flow?.rest_break_enabled !== false;
       const restSeconds = flow?.rest_break_seconds ?? 5;
-      if (restEnabled && restSeconds > 0) {
+      const restEvery = Math.max(1, flow?.rest_break_every ?? 1);
+      const finishedCount = session.currentQuestionIndex + 1;
+      if (restEnabled && restSeconds > 0 && finishedCount % restEvery === 0) {
+        restingRef.current = true;
         recordEvent('rest_start', { seconds: restSeconds, nextIndex: session.currentQuestionIndex + 1 });
         setRestState({
           seconds: restSeconds,
@@ -210,6 +214,7 @@ export default function ExperimentRunPage() {
     finishCurrentQuestion,
     flow?.rest_break_enabled,
     flow?.rest_break_seconds,
+    flow?.rest_break_every,
     isGuideTourRun,
     isLastQuestion,
     isResting,
@@ -232,6 +237,8 @@ export default function ExperimentRunPage() {
   }, [captureCurrentSnapshot, completeExperiment, currentQuestionId, finishCurrentQuestion, isGuideTourRun, isQuestionFinished]);
 
   const handleRestComplete = useCallback(() => {
+    if (!restingRef.current) return;
+    restingRef.current = false;
     recordEvent('rest_end');
     setRestState(null);
     advanceToNextQuestion();
@@ -242,6 +249,7 @@ export default function ExperimentRunPage() {
       if (isGuideTourRun && currentTourStep?.id !== 'run-keys') return;
       if (e.key === 'F9') {
         e.preventDefault();
+        if (e.repeat || restingRef.current) return;
         void handleFinishQuestion();
       }
       if (e.key === 'F10') {
@@ -350,7 +358,7 @@ export default function ExperimentRunPage() {
                 <div
                   key={currentQuestionId}
                   ref={questionPanelRef}
-                  className="experiment-question-swap shrink-0 min-h-[30vh] max-h-[52vh] overflow-y-auto"
+                  className="experiment-question-swap w-full shrink-0 self-start h-max min-h-0 max-h-[52vh] overflow-y-auto"
                 >
                   <QuestionPanel content={currentQuestion.content} minimal />
                 </div>

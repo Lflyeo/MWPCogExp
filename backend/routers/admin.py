@@ -863,7 +863,37 @@ def _experiment_session_counts(payload_raw: str) -> tuple[int, int]:
         return 0, 0
 
 
-def _flow_item(db: Session, row: ExperimentFlow) -> AdminExperimentFlowItem:
+def _flow_id_from_payload(payload_raw: str | None) -> str | None:
+    if not payload_raw:
+        return None
+    try:
+        data = json.loads(payload_raw)
+    except (TypeError, json.JSONDecodeError):
+        return None
+    fid = data.get("flowId") or data.get("flow_id")
+    if fid is None:
+        return None
+    text_id = str(fid).strip()
+    return text_id or None
+
+
+def _session_flow_id(row: ExperimentSession) -> str | None:
+    if row.flow_id and str(row.flow_id).strip():
+        return str(row.flow_id).strip()
+    return _flow_id_from_payload(row.payload)
+
+
+def _session_flow_labels(db: Session, row: ExperimentSession) -> tuple[str | None, str | None]:
+    fid = _session_flow_id(row)
+    if not fid:
+        return None, None
+    flow = db.query(ExperimentFlow).filter(ExperimentFlow.id == fid).first()
+    if flow:
+        return fid, flow.name
+    return fid, f"{fid}（已删除）"
+
+
+def _flow_item(db: Session, row: ExperimentFlow, session_count: int = 0) -> AdminExperimentFlowItem:
     return AdminExperimentFlowItem(
         id=row.id,
         name=row.name,
@@ -872,10 +902,25 @@ def _flow_item(db: Session, row: ExperimentFlow) -> AdminExperimentFlowItem:
         enabled=bool(row.enabled),
         rest_break_enabled=bool(getattr(row, "rest_break_enabled", True)),
         rest_break_seconds=int(getattr(row, "rest_break_seconds", 5) or 5),
+        rest_break_every=max(1, int(getattr(row, "rest_break_every", 1) or 1)),
         question_count=_flow_question_count(db, row.id),
+        session_count=session_count,
+        archived=False,
         created_at=row.created_at.isoformat() if row.created_at else None,
         updated_at=row.updated_at.isoformat() if row.updated_at else None,
     )
+
+
+def _archived_flow_ids_from_sessions(db: Session, existing_ids: set[str]) -> dict[str, int]:
+    """已删除实验流仍留在会话里的 ID 及其记录数。"""
+    counts: dict[str, int] = {}
+    rows = db.query(ExperimentSession.flow_id, ExperimentSession.payload).all()
+    for flow_id, payload in rows:
+        fid = str(flow_id).strip() if flow_id and str(flow_id).strip() else _flow_id_from_payload(payload)
+        if not fid or fid in existing_ids:
+            continue
+        counts[fid] = counts.get(fid, 0) + 1
+    return counts
 
 
 def _question_item(row: ExperimentQuestion) -> AdminExperimentQuestionItem:
@@ -886,15 +931,43 @@ def _question_item(row: ExperimentQuestion) -> AdminExperimentQuestionItem:
         content=row.content,
         sort_order=row.sort_order,
         enabled=bool(row.enabled),
+        mwp_id=getattr(row, "mwp_id", None),
+        level5=getattr(row, "level5", None),
         created_at=row.created_at.isoformat() if row.created_at else None,
         updated_at=row.updated_at.isoformat() if row.updated_at else None,
     )
 
 
 @router.get("/experiment-flows", response_model=AdminExperimentFlowListResponse)
-def admin_list_experiment_flows(db: Session = Depends(get_db), _: str = Depends(get_admin_token)):
+def admin_list_experiment_flows(
+    include_archived: bool = Query(False, description="包含已删除但仍有作答记录的实验流"),
+    db: Session = Depends(get_db),
+    _: str = Depends(get_admin_token),
+):
     rows = db.query(ExperimentFlow).order_by(ExperimentFlow.sort_order, ExperimentFlow.id).all()
-    return AdminExperimentFlowListResponse(data=[_flow_item(db, r) for r in rows])
+    session_counts = {
+        fid: count
+        for fid, count in db.query(ExperimentSession.flow_id, func.count(ExperimentSession.id))
+        .filter(ExperimentSession.flow_id.isnot(None), ExperimentSession.flow_id != "")
+        .group_by(ExperimentSession.flow_id)
+        .all()
+    }
+    data = [_flow_item(db, r, int(session_counts.get(r.id, 0) or 0)) for r in rows]
+    if include_archived:
+        archived = _archived_flow_ids_from_sessions(db, {r.id for r in rows})
+        for fid in sorted(archived):
+            data.append(
+                AdminExperimentFlowItem(
+                    id=fid,
+                    name=f"{fid}（已删除）",
+                    description="实验流已删除，以下为保留的作答记录",
+                    enabled=False,
+                    question_count=0,
+                    session_count=archived[fid],
+                    archived=True,
+                )
+            )
+    return AdminExperimentFlowListResponse(data=data)
 
 
 @router.post("/experiment-flows", response_model=AdminExperimentFlowUpsertResponse)
@@ -914,6 +987,7 @@ def admin_create_experiment_flow(
         enabled=req.enabled,
         rest_break_enabled=req.rest_break_enabled,
         rest_break_seconds=req.rest_break_seconds,
+        rest_break_every=req.rest_break_every,
     )
     try:
         db.add(row)
@@ -947,6 +1021,8 @@ def admin_update_experiment_flow(
         row.rest_break_enabled = req.rest_break_enabled
     if req.rest_break_seconds is not None:
         row.rest_break_seconds = req.rest_break_seconds
+    if req.rest_break_every is not None:
+        row.rest_break_every = req.rest_break_every
     try:
         db.commit()
         db.refresh(row)
@@ -1002,6 +1078,8 @@ def admin_create_flow_question(
         content=req.content.strip(),
         sort_order=req.sort_order,
         enabled=req.enabled,
+        mwp_id=req.mwp_id,
+        level5=req.level5.strip() if req.level5 else None,
     )
     try:
         db.add(row)
@@ -1032,6 +1110,10 @@ def admin_update_flow_question(
         row.sort_order = req.sort_order
     if req.enabled is not None:
         row.enabled = req.enabled
+    if req.mwp_id is not None:
+        row.mwp_id = req.mwp_id
+    if req.level5 is not None:
+        row.level5 = req.level5.strip() or None
     try:
         db.commit()
         db.refresh(row)
@@ -1070,8 +1152,22 @@ def admin_list_experiment_sessions(
     _: str = Depends(get_admin_token),
 ):
     query = db.query(ExperimentSession).join(User, ExperimentSession.user_id == User.id, isouter=True)
-    if flow_id and flow_id.strip():
-        query = query.filter(ExperimentSession.flow_id == flow_id.strip())
+    flow_key = flow_id.strip() if flow_id and flow_id.strip() else ""
+    if flow_key:
+        query = query.filter(
+            or_(
+                ExperimentSession.flow_id == flow_key,
+                and_(
+                    or_(ExperimentSession.flow_id.is_(None), ExperimentSession.flow_id == ""),
+                    or_(
+                        ExperimentSession.payload.like(f'%"flowId": "{flow_key}"%'),
+                        ExperimentSession.payload.like(f'%"flowId":"{flow_key}"%'),
+                        ExperimentSession.payload.like(f'%"flow_id": "{flow_key}"%'),
+                        ExperimentSession.payload.like(f'%"flow_id":"{flow_key}"%'),
+                    ),
+                ),
+            )
+        )
     if keyword and keyword.strip():
         kw = f"%{keyword.strip()}%"
         query = query.filter(
@@ -1086,13 +1182,13 @@ def admin_list_experiment_sessions(
     data = []
     for row in rows:
         user = db.query(User).filter(User.id == row.user_id).first() if row.user_id else None
-        flow = db.query(ExperimentFlow).filter(ExperimentFlow.id == row.flow_id).first() if row.flow_id else None
+        fid, flow_name = _session_flow_labels(db, row)
         q_count, e_count = _experiment_session_counts(row.payload)
         data.append(
             AdminExperimentSessionItem(
                 id=row.id,
-                flow_id=row.flow_id,
-                flow_name=flow.name if flow else None,
+                flow_id=fid,
+                flow_name=flow_name,
                 status=row.status,
                 started_at=row.started_at.isoformat() if row.started_at else None,
                 ended_at=row.ended_at.isoformat() if row.ended_at else None,
@@ -1114,7 +1210,7 @@ def admin_get_experiment_session(session_id: str, db: Session = Depends(get_db),
     if not row:
         return AdminExperimentSessionDetailResponse(errCode=404, errMsg="会话不存在", data=None)
     user = db.query(User).filter(User.id == row.user_id).first() if row.user_id else None
-    flow = db.query(ExperimentFlow).filter(ExperimentFlow.id == row.flow_id).first() if row.flow_id else None
+    fid, flow_name = _session_flow_labels(db, row)
     try:
         payload = json.loads(row.payload)
     except json.JSONDecodeError:
@@ -1125,8 +1221,8 @@ def admin_get_experiment_session(session_id: str, db: Session = Depends(get_db),
         errMsg="success",
         data=AdminExperimentSessionDetailItem(
             id=row.id,
-            flow_id=row.flow_id,
-            flow_name=flow.name if flow else None,
+            flow_id=fid,
+            flow_name=flow_name,
             status=row.status,
             started_at=row.started_at.isoformat() if row.started_at else None,
             ended_at=row.ended_at.isoformat() if row.ended_at else None,

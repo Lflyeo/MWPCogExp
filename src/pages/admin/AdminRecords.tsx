@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Search, Trash2, Eye } from 'lucide-react';
 import { toast } from 'sonner';
+import { BatchDeleteButton, SelectCheckbox, deleteMany, useRowSelection } from './batchSelect';
 import { adminRecordsList, adminRecordDelete, type AdminRecordItem } from '@/services/admin';
 import { formatUserLabel, hasUserIdentity } from '@/types/userProfile';
 import { AdminRecordResultModal } from './AdminRecordResultModal';
@@ -14,6 +15,8 @@ export default function AdminRecords() {
   const [userId, setUserId] = useState('');
   const [loading, setLoading] = useState(true);
   const [viewId, setViewId] = useState<string | null>(null);
+  const [batchBusy, setBatchBusy] = useState(false);
+  const selection = useRowSelection(list.map((r) => r.id), `${page}|${keyword}|${userId}`);
 
   const fetchList = useCallback(
     (p: number) => {
@@ -48,6 +51,25 @@ export default function AdminRecords() {
       .catch((err) => toast.error(err?.message || '删除失败'));
   };
 
+  const handleBatchDelete = async () => {
+    const ids = selection.selectedIds;
+    if (ids.length === 0) return;
+    if (!window.confirm(`确定删除选中的 ${ids.length} 条解题记录？`)) return;
+    setBatchBusy(true);
+    try {
+      const { ok, fail } = await deleteMany(ids, async (id) => {
+        const res = await adminRecordDelete(id);
+        if (res.errCode !== 0) throw new Error(res.errMsg);
+      });
+      if (fail) toast.error(`已删除 ${ok} 条，失败 ${fail} 条`);
+      else toast.success(`已删除 ${ok} 条解题记录`);
+      selection.clear();
+      fetchList(page);
+    } finally {
+      setBatchBusy(false);
+    }
+  };
+
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
@@ -72,6 +94,7 @@ export default function AdminRecords() {
             placeholder="按用户ID过滤（可选）"
             className="px-3 py-2 rounded-lg border border-slate-200 text-sm min-w-[200px]"
           />
+          <BatchDeleteButton count={selection.count} busy={batchBusy} onClick={() => void handleBatchDelete()} />
         </div>
         <div className="flex-1 min-h-0 overflow-auto">
           {loading ? (
@@ -82,6 +105,9 @@ export default function AdminRecords() {
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-slate-50 z-10">
                 <tr className="border-b border-slate-200">
+                  <th className="text-left py-3 px-4 font-medium text-slate-700 w-10">
+                    <SelectCheckbox checked={selection.allChecked} indeterminate={selection.someChecked} onChange={selection.toggleAll} label="全选本页" />
+                  </th>
                   <th className="text-left py-3 px-4 font-medium text-slate-700 w-16">序号</th>
                   <th className="text-left py-3 px-4 font-medium text-slate-700">题目</th>
                   <th className="text-left py-3 px-4 font-medium text-slate-700">用户</th>
@@ -92,6 +118,9 @@ export default function AdminRecords() {
               <tbody>
                 {list.map((r, idx) => (
                   <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50/50">
+                    <td className="py-3 px-4">
+                      <SelectCheckbox checked={selection.isSelected(r.id)} onChange={() => selection.toggle(r.id)} label={`选择 ${r.id}`} />
+                    </td>
                     <td className="py-3 px-4 text-slate-500 text-sm">
                       {(page - 1) * pageSize + idx + 1}
                     </td>

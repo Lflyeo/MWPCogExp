@@ -14,7 +14,7 @@ interface QuestionPanelProps {
 export function QuestionPanel({ content, questionIndex, totalQuestions, minimal = false }: QuestionPanelProps) {
   return (
     <section
-      className={`experiment-aoi experiment-aoi--question relative rounded-[12px] border-2 border-dashed border-[#e07b39] bg-[#faf8f4] ${
+      className={`experiment-aoi experiment-aoi--question relative h-auto rounded-[12px] border-2 border-dashed border-[#e07b39] bg-[#faf8f4] ${
         minimal ? 'px-7 py-4' : 'flex flex-col min-h-0 px-8 py-6'
       }`}
       aria-label="题目区域"

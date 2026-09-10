@@ -259,7 +259,10 @@ export interface AdminExperimentFlowItem {
   enabled: boolean;
   rest_break_enabled: boolean;
   rest_break_seconds: number;
+  rest_break_every?: number;
   question_count: number;
+  session_count?: number;
+  archived?: boolean;
   created_at?: string | null;
   updated_at?: string | null;
 }
@@ -271,6 +274,8 @@ export interface AdminExperimentQuestionItem {
   content: string;
   sort_order: number;
   enabled: boolean;
+  mwp_id?: number | null;
+  level5?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
 }
@@ -294,8 +299,11 @@ export interface AdminExperimentSessionDetailItem extends AdminExperimentSession
   payload: Record<string, unknown>;
 }
 
-export function adminExperimentFlowsList() {
-  return adminRequest<AdminExperimentFlowItem[]>('/admin/experiment-flows');
+export function adminExperimentFlowsList(params?: { include_archived?: boolean }) {
+  const search = new URLSearchParams();
+  if (params?.include_archived) search.set('include_archived', 'true');
+  const qs = search.toString();
+  return adminRequest<AdminExperimentFlowItem[]>(`/admin/experiment-flows${qs ? `?${qs}` : ''}`);
 }
 
 export function adminExperimentFlowCreate(body: {
@@ -306,6 +314,7 @@ export function adminExperimentFlowCreate(body: {
   enabled?: boolean;
   rest_break_enabled?: boolean;
   rest_break_seconds?: number;
+  rest_break_every?: number;
 }) {
   return adminRequest<AdminExperimentFlowItem>('/admin/experiment-flows', {
     method: 'POST',
@@ -322,6 +331,7 @@ export function adminExperimentFlowUpdate(
     enabled?: boolean;
     rest_break_enabled?: boolean;
     rest_break_seconds?: number;
+    rest_break_every?: number;
   },
 ) {
   return adminRequest<AdminExperimentFlowItem>(`/admin/experiment-flows/${id}`, {
@@ -406,4 +416,146 @@ export function adminExperimentSessionDetail(id: string) {
 
 export function adminExperimentSessionDelete(id: string) {
   return adminRequest<Record<string, never>>(`/admin/experiment-sessions/${id}`, { method: 'DELETE' });
+}
+
+/** 分层覆盖抽样 */
+export interface AdminSamplingRunResult {
+  seed: number;
+  run_id: string;
+  mode: string;
+  out_dir: string;
+  total_trials: number;
+  unique_items: number;
+  duplicate_trials: number;
+  database_size: number;
+  eligible_size: number;
+  coverage_vs_database: number;
+  coverage_vs_eligible: number;
+  eligible_by_level: Record<string, number>;
+  warnings: string[];
+  files: Record<string, string>;
+}
+
+export interface AdminSamplingOutputListItem {
+  run_id: string;
+  seed: string | number;
+  path: string;
+  has_assignments: boolean;
+  created_at?: number | null;
+  coverage?: {
+    total_trials?: number;
+    unique_items?: number;
+    duplicate_trials?: number;
+    coverage_vs_eligible?: number;
+    coverage_vs_database?: number;
+  };
+  meta?: {
+    seed?: number;
+    mode?: string;
+    n_participants?: number;
+    per_level?: number;
+  };
+}
+
+export interface AdminSamplingAssignmentItem {
+  trial_index: number;
+  mwp_id: number;
+  level5: string;
+  composite_score?: number | null;
+  raw_text_preview?: string;
+}
+
+export interface AdminSamplingParticipant {
+  participant_id: string;
+  flow_id: string;
+  items: AdminSamplingAssignmentItem[];
+}
+
+export interface AdminSamplingOutputDetail {
+  run_id: string;
+  seed: number | string;
+  out_dir: string;
+  meta?: Record<string, unknown>;
+  n_participants: number;
+  participants: AdminSamplingParticipant[];
+  preview?: Record<string, unknown>;
+  report?: {
+    meta?: Record<string, unknown>;
+    coverage?: {
+      total_trials?: number;
+      unique_items?: number;
+      duplicate_trials?: number;
+      coverage_vs_eligible?: number;
+      coverage_vs_database?: number;
+      by_level?: Record<string, { total_trials: number; unique_items: number; coverage_rate: number }>;
+    };
+    issues?: Array<{ severity: string; code: string; message: string }>;
+  } | null;
+  files: string[];
+}
+
+export interface AdminSamplingImportResult {
+  seed: number;
+  mode: string;
+  created_flows: number;
+  updated_flows: number;
+  created_questions: number;
+  n_flows: number;
+  flow_ids: string[];
+}
+
+export function adminSamplingRun(body: {
+  seed?: number;
+  mode?: string;
+  n_participants?: number;
+  per_level?: number;
+  include_format_diff?: boolean;
+  allow_missing_composite_score?: boolean;
+  avoid_adjacent_same_level?: boolean;
+}) {
+  return adminRequest<AdminSamplingRunResult>('/admin/experiment-sampling/run', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function adminSamplingOutputsList() {
+  return adminRequest<AdminSamplingOutputListItem[]>('/admin/experiment-sampling/outputs');
+}
+
+export function adminSamplingOutputDetail(runId: string) {
+  return adminRequest<AdminSamplingOutputDetail>(`/admin/experiment-sampling/outputs/${encodeURIComponent(runId)}`);
+}
+
+export function adminSamplingImport(body: {
+  run_id: string;
+  seed?: number;
+  replace_existing?: boolean;
+  enabled?: boolean;
+  rest_break_enabled?: boolean;
+  rest_break_seconds?: number;
+  rest_break_every?: number;
+  participant_ids?: string[] | null;
+}) {
+  return adminRequest<AdminSamplingImportResult>('/admin/experiment-sampling/import', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+/** 带管理员 Token 的抽样产物文件 URL（用于 img / 下载） */
+export function adminSamplingFileUrl(runId: string, filename: string) {
+  return `${BASE_URL}${API_PREFIX}/admin/experiment-sampling/outputs/${encodeURIComponent(runId)}/files/${encodeURIComponent(filename)}`;
+}
+
+export async function adminSamplingFetchFileBlob(runId: string, filename: string) {
+  const token = getAdminToken();
+  if (!token) throw new Error('请先登录管理员');
+  const res = await fetch(adminSamplingFileUrl(runId, filename), {
+    headers: { 'X-Admin-Token': token },
+  });
+  if (!res.ok) {
+    throw new Error(`下载失败: ${res.status}`);
+  }
+  return res.blob();
 }

@@ -14,6 +14,7 @@ import {
 } from '@/services/admin';
 import { exportPayloadAsCsv, exportPayloadAsJson } from '@/modules/experiment/utils/exportExperimentData';
 import { formatUserLabel, formatUserProfileSummary, hasUserIdentity } from '@/types/userProfile';
+import { BatchDeleteButton, SelectCheckbox, deleteMany, useRowSelection } from './batchSelect';
 
 export default function AdminExperimentData() {
   const [flows, setFlows] = useState<AdminExperimentFlowItem[]>([]);
@@ -26,9 +27,11 @@ export default function AdminExperimentData() {
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState<AdminExperimentSessionDetailItem | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [batchBusy, setBatchBusy] = useState(false);
+  const selection = useRowSelection(list.map((item) => item.id), `${page}|${keyword}|${selectedFlowId}`);
 
   useEffect(() => {
-    adminExperimentFlowsList()
+    adminExperimentFlowsList({ include_archived: true })
       .then((res) => {
         const data = res.data || [];
         setFlows(data);
@@ -92,6 +95,26 @@ export default function AdminExperimentData() {
       .catch((err) => toast.error(err?.message || '删除失败'));
   };
 
+  const handleBatchDelete = async () => {
+    const ids = selection.selectedIds;
+    if (ids.length === 0) return;
+    if (!window.confirm(`确定删除选中的 ${ids.length} 条实验数据？`)) return;
+    setBatchBusy(true);
+    try {
+      const { ok, fail } = await deleteMany(ids, async (id) => {
+        const res = await adminExperimentSessionDelete(id);
+        if (res.errCode !== 0) throw new Error(res.errMsg);
+      });
+      if (fail) toast.error(`已删除 ${ok} 条，失败 ${fail} 条`);
+      else toast.success(`已删除 ${ok} 条实验数据`);
+      if (detail && ids.includes(detail.id)) setDetail(null);
+      selection.clear();
+      fetchList(page);
+    } finally {
+      setBatchBusy(false);
+    }
+  };
+
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const detailSnapshots = useMemo(
     () => (detail?.payload ? extractQuestionSnapshots(detail.payload) : []),
@@ -112,20 +135,24 @@ export default function AdminExperimentData() {
           {flows.length === 0 && <option value="">暂无实验流</option>}
           {flows.map((f) => (
             <option key={f.id} value={f.id}>
-              {f.name}（{f.question_count} 题）
+              {f.archived
+                ? `${f.name}（${f.session_count ?? 0} 条记录）`
+                : `${f.name}（${f.question_count} 题）`}
             </option>
           ))}
         </select>
         {selectedFlow && (
           <span className="text-xs text-slate-500">
-            查看「{selectedFlow.name}」中被试的作答数据
+            {selectedFlow.archived
+              ? `查看已删除实验流「${selectedFlow.id}」保留的作答数据`
+              : `查看「${selectedFlow.name}」中被试的作答数据`}
           </span>
         )}
       </div>
 
       <div className="flex-1 min-h-0 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-        <div className="shrink-0 p-4 border-b border-slate-100">
-          <div className="relative max-w-md">
+        <div className="shrink-0 p-4 border-b border-slate-100 flex flex-wrap items-center gap-3">
+          <div className="relative max-w-md flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input
               type="text"
@@ -135,18 +162,22 @@ export default function AdminExperimentData() {
               className="w-full pl-9 pr-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-400"
             />
           </div>
+          <BatchDeleteButton count={selection.count} busy={batchBusy} onClick={() => void handleBatchDelete()} />
         </div>
         <div className="flex-1 min-h-0 overflow-auto">
           {loading ? (
             <div className="p-8 text-center text-slate-500">加载中...</div>
           ) : !selectedFlowId ? (
-            <div className="p-8 text-center text-slate-500">请先创建实验流</div>
+            <div className="p-8 text-center text-slate-500">暂无实验流或作答数据</div>
           ) : list.length === 0 ? (
             <div className="p-8 text-center text-slate-500">该实验流暂无作答数据</div>
           ) : (
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-slate-50 z-10">
                 <tr className="border-b border-slate-200">
+                  <th className="text-left py-3 px-4 font-medium text-slate-700 w-10">
+                    <SelectCheckbox checked={selection.allChecked} indeterminate={selection.someChecked} onChange={selection.toggleAll} label="全选本页" />
+                  </th>
                   <th className="text-left py-3 px-4 font-medium text-slate-700">用户</th>
                   <th className="text-left py-3 px-4 font-medium text-slate-700">会话 ID</th>
                   <th className="text-left py-3 px-4 font-medium text-slate-700">状态</th>
@@ -159,6 +190,9 @@ export default function AdminExperimentData() {
               <tbody>
                 {list.map((item) => (
                   <tr key={item.id} className="border-b border-slate-100 hover:bg-slate-50/50">
+                    <td className="py-3 px-4">
+                      <SelectCheckbox checked={selection.isSelected(item.id)} onChange={() => selection.toggle(item.id)} label={`选择 ${item.id}`} />
+                    </td>
                     <td className="py-3 px-4">
                       {hasUserIdentity(item) ? (
                         <span>{formatUserLabel(item)}</span>
