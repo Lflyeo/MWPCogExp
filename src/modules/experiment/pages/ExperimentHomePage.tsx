@@ -100,6 +100,8 @@ export default function ExperimentHomePage() {
   const tourSteps = useMemo(() => filterGuideTourSteps(formalFlows.length > 0), [formalFlows.length]);
   const currentTourStep = tourSteps[guideStepIndex];
   const showHomeTour = guideTourOpen && !!currentTourStep && currentTourStep.phase !== 'run';
+  // 正式流列表渲染后再触发指引重测，确保 formal-start 锚点已挂载
+  const tourAnchorRemeasureKey = formalFlows.length + (showHomeTour && currentTourStep?.phase === 'formal' ? guideStepIndex + 1 : 0);
 
   useEffect(() => {
     experimentFlowsList()
@@ -367,6 +369,7 @@ export default function ExperimentHomePage() {
         stepIndex={guideStepIndex}
         steps={tourSteps}
         anchors={tourAnchorRefs}
+        anchorRemeasureKey={tourAnchorRemeasureKey}
         onNext={handleTourNext}
         onPrev={handleTourPrev}
         onClose={closeGuideTour}

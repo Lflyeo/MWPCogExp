@@ -158,18 +158,22 @@ def run_sampling_pipeline(
     write_assignments_json(result, out_dir / "assignments.json")
     write_assignments_csv(result, out_dir / "assignments.csv")
     write_sampling_quality_report(result, stats, out_dir / "sampling_quality_report.md")
-    figs = generate_figures(result, stats, out_dir)
 
+    warnings = [i.message for i in stats.issues if i.severity == "warning"]
     files = {
         "assignments_json": "assignments.json",
         "assignments_csv": "assignments.csv",
         "data_quality_report": "data_quality_report.csv",
         "sampling_quality_report_md": "sampling_quality_report.md",
         "sampling_quality_report_json": "sampling_quality_report.json",
-        "fig1": figs["fig1"].name,
-        "fig2": figs["fig2"].name,
-        "fig3": figs["fig3"].name,
     }
+    try:
+        figs = generate_figures(result, stats, out_dir)
+        files["fig1"] = figs["fig1"].name
+        files["fig2"] = figs["fig2"].name
+        files["fig3"] = figs["fig3"].name
+    except Exception as e:
+        warnings.append(f"可视化图片未生成: {e}")
 
     return PipelineResult(
         seed=seed,
@@ -184,7 +188,7 @@ def run_sampling_pipeline(
         coverage_vs_database=stats.coverage_vs_database,
         coverage_vs_eligible=stats.coverage_vs_eligible,
         eligible_by_level={lv: len(quality.eligible_by_level[lv]) for lv in LEVEL5_ORDER},
-        warnings=[i.message for i in stats.issues if i.severity == "warning"],
+        warnings=warnings,
         files=files,
     )
 

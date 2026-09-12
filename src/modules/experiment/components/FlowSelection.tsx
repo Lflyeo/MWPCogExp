@@ -20,7 +20,7 @@ export function FlowSelection({
   if (flows.length === 0) return null;
 
   return (
-    <div ref={sectionRef} className="w-full space-y-3">
+    <div ref={sectionRef} className="w-full space-y-3 scroll-mt-36">
       {sectionTitle && (
         <h2 className="text-sm font-medium text-gray-500 px-1 pt-1">{sectionTitle}</h2>
       )}
@@ -48,7 +48,7 @@ export function FlowSelection({
               ref={index === 0 ? firstStartRef : undefined}
               type="button"
               onClick={() => onStart(flow)}
-              className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors shrink-0 mt-1"
+              className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors shrink-0 mt-1 scroll-mt-36"
             >
               开始
             </button>

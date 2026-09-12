@@ -214,8 +214,6 @@ body.experiment-run-fullscreen [data-sonner-toast] {
 }
 
 .experiment-question-swap {
-  height: max-content;
-  max-height: 52vh;
   animation: experimentQuestionSwap 320ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 

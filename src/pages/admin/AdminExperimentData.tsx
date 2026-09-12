@@ -4,6 +4,11 @@ import { toast } from 'sonner';
 import { getAssetUrl } from '@/lib/api';
 import { extractQuestionSnapshots } from '@/modules/experiment/utils/extractQuestionSnapshots';
 import {
+  extractQuestionDurations,
+  formatDuration,
+  summarizeQuestionDurations,
+} from '@/modules/experiment/utils/extractQuestionDurations';
+import {
   adminExperimentFlowsList,
   adminExperimentSessionsList,
   adminExperimentSessionDetail,
@@ -120,6 +125,19 @@ export default function AdminExperimentData() {
     () => (detail?.payload ? extractQuestionSnapshots(detail.payload) : []),
     [detail?.payload],
   );
+  const detailDurations = useMemo(
+    () => (detail?.payload ? extractQuestionDurations(detail.payload) : []),
+    [detail?.payload],
+  );
+  const detailDurationSummary = useMemo(
+    () => summarizeQuestionDurations(detailDurations),
+    [detailDurations],
+  );
+  const durationByQuestionId = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const item of detailDurations) map.set(item.questionId, item.durationMs);
+    return map;
+  }, [detailDurations]);
 
   return (
     <div className="h-full min-h-0 flex flex-col overflow-hidden">
@@ -269,6 +287,56 @@ export default function AdminExperimentData() {
                   </div>
 
                   <div>
+                    <h3 className="font-medium text-slate-800 mb-3">各题作答时间</h3>
+                    {detailDurations.length === 0 ? (
+                      <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-slate-500 text-sm">
+                        暂无作答时间数据
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="rounded-lg bg-slate-50 px-3 py-2">
+                            <div className="text-slate-500 text-xs">总作答时间</div>
+                            <div className="font-medium text-slate-900 mt-1">
+                              {formatDuration(detailDurationSummary.totalAnswerMs)}
+                            </div>
+                          </div>
+                          <div className="rounded-lg bg-slate-50 px-3 py-2">
+                            <div className="text-slate-500 text-xs">平均每题</div>
+                            <div className="font-medium text-slate-900 mt-1">
+                              {formatDuration(detailDurationSummary.averageAnswerMs)}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="border border-slate-200 rounded-lg overflow-hidden">
+                          <table className="w-full text-sm">
+                            <thead className="bg-slate-50">
+                              <tr>
+                                <th className="text-left py-2 px-3 font-medium text-slate-600">题号</th>
+                                <th className="text-left py-2 px-3 font-medium text-slate-600">题目 ID</th>
+                                <th className="text-right py-2 px-3 font-medium text-slate-600">用时</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {detailDurations.map((item) => (
+                                <tr key={item.questionId} className="border-t border-slate-100">
+                                  <td className="py-2 px-3 text-slate-600">第 {item.index} 题</td>
+                                  <td className="py-2 px-3 font-mono text-xs text-slate-800">
+                                    {item.title || item.questionId}
+                                  </td>
+                                  <td className="py-2 px-3 text-right font-medium text-slate-900">
+                                    {formatDuration(item.durationMs)}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
                     <div className="flex items-center gap-2 mb-3">
                       <ImageIcon size={16} className="text-slate-500" />
                       <h3 className="font-medium text-slate-800">屏幕快照</h3>
@@ -285,6 +353,11 @@ export default function AdminExperimentData() {
                             <div className="flex items-center justify-between gap-3 px-3 py-2 border-b border-slate-200 bg-white text-xs text-slate-600">
                               <span>
                                 第 {snap.index} 题 · <span className="font-mono">{snap.questionId}</span>
+                                {durationByQuestionId.has(snap.questionId) ? (
+                                  <span className="ml-2 text-slate-800 font-medium">
+                                    用时 {formatDuration(durationByQuestionId.get(snap.questionId) ?? 0)}
+                                  </span>
+                                ) : null}
                                 {snap.capturedAt ? (
                                   <span className="text-slate-400 ml-2">
                                     {new Date(snap.capturedAt).toLocaleString()}

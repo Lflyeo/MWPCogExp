@@ -53,7 +53,7 @@ export function ExperimentUserConfirmOverlay({
           <h2 className="text-lg font-bold text-neutral-900">请确认个人信息</h2>
           <p className="mt-2 text-sm text-neutral-500">
             {flowName ? `即将开始「${flowName}」。` : '即将开始实验。'}
-            请核对以下信息是否正确，确认后将按 Enter 键进入作答。
+            请核对以下信息是否正确，确认后将按 F9 键进入作答。
           </p>
         </div>
 

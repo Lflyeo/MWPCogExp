@@ -6,6 +6,10 @@ import { useExperimentSession } from '../hooks/useExperimentSession';
 import { useExperimentRunImmersive } from '../hooks/useExperimentRunFullscreen';
 import { QuestionPanel } from '../components/QuestionPanel';
 import { AnswerCanvas, type AnswerCanvasHandle } from '../components/AnswerCanvas';
+import {
+  ExperimentDrawingOverlay,
+  type ExperimentDrawingOverlayHandle,
+} from '../components/ExperimentDrawingOverlay';
 import { ExperimentRestOverlay } from '../components/ExperimentRestOverlay';
 import { ExperimentGuideTour } from '../components/ExperimentGuideTour';
 import {
@@ -25,6 +29,7 @@ import {
   saveGuideTourSession,
 } from '../utils/experimentGuideTourSession';
 import { exitExperimentFullscreen } from '../utils/experimentFullscreen';
+import { speakExperimentPrompt } from '../utils/experimentSpeech';
 import type { ExperimentFlow, QuestionItem } from '../types/experiment';
 
 type RestState = {
@@ -39,9 +44,10 @@ export default function ExperimentRunPage() {
   const shellRef = useRef<HTMLDivElement>(null);
   const captureRef = useRef<HTMLDivElement>(null);
   const answerCanvasRef = useRef<AnswerCanvasHandle>(null);
+  const drawingOverlayRef = useRef<ExperimentDrawingOverlayHandle>(null);
   const processingRef = useRef(false);
   const restingRef = useRef(false);
-  const questionPanelRef = useRef<HTMLDivElement>(null);
+  const questionPanelRef = useRef<HTMLElement>(null);
   const canvasSectionRef = useRef<HTMLElement>(null);
   const runKeysRef = useRef<HTMLDivElement>(null);
 
@@ -165,6 +171,7 @@ export default function ExperimentRunPage() {
     if (!captureRef.current || !currentQuestionId || isQuestionFinished(currentQuestionId)) return;
     try {
       answerCanvasRef.current?.flushBeforeCapture();
+      drawingOverlayRef.current?.flushBeforeCapture();
       const url = await captureAndUploadQuestionSnapshot(
         captureRef.current,
         session.sessionId,
@@ -179,13 +186,15 @@ export default function ExperimentRunPage() {
 
   const handleFinishQuestion = useCallback(async () => {
     if (processingRef.current || restingRef.current || isResting || !currentQuestionId || isGuideTourRun) return;
+    if (isQuestionFinished(currentQuestionId)) return;
     processingRef.current = true;
     try {
       await captureCurrentSnapshot();
       finishCurrentQuestion();
 
+      // 最后一题只完成本题，不自动结束整场；需按 F10 结束实验
       if (isLastQuestion) {
-        await completeExperiment();
+        speakExperimentPrompt('已经是最后一题，请按 F10 结束实验');
         return;
       }
 
@@ -209,7 +218,6 @@ export default function ExperimentRunPage() {
   }, [
     advanceToNextQuestion,
     captureCurrentSnapshot,
-    completeExperiment,
     currentQuestionId,
     finishCurrentQuestion,
     flow?.rest_break_enabled,
@@ -217,6 +225,7 @@ export default function ExperimentRunPage() {
     flow?.rest_break_every,
     isGuideTourRun,
     isLastQuestion,
+    isQuestionFinished,
     isResting,
     recordEvent,
     session.currentQuestionIndex,
@@ -226,6 +235,8 @@ export default function ExperimentRunPage() {
     if (processingRef.current || isGuideTourRun) return;
     processingRef.current = true;
     try {
+      restingRef.current = false;
+      setRestState(null);
       if (currentQuestionId && !isQuestionFinished(currentQuestionId)) {
         await captureCurrentSnapshot();
         finishCurrentQuestion();
@@ -249,17 +260,32 @@ export default function ExperimentRunPage() {
       if (isGuideTourRun && currentTourStep?.id !== 'run-keys') return;
       if (e.key === 'F9') {
         e.preventDefault();
-        if (e.repeat || restingRef.current) return;
+        if (e.repeat) return;
+        // 休息倒计时中忽略；倒计时结束后由休息层自行监听 F9 继续
+        if (restingRef.current) return;
+        if (currentQuestionId && isLastQuestion && isQuestionFinished(currentQuestionId)) {
+          speakExperimentPrompt('已经是最后一题，请按 F10 结束实验');
+          return;
+        }
         void handleFinishQuestion();
       }
       if (e.key === 'F10') {
         e.preventDefault();
+        if (e.repeat) return;
         void handleEndExperiment();
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [currentTourStep?.id, handleEndExperiment, handleFinishQuestion, isGuideTourRun]);
+  }, [
+    currentQuestionId,
+    currentTourStep?.id,
+    handleEndExperiment,
+    handleFinishQuestion,
+    isGuideTourRun,
+    isLastQuestion,
+    isQuestionFinished,
+  ]);
 
   const handleStrokesChange = useCallback(
     (next: typeof strokes) => {
@@ -354,24 +380,38 @@ export default function ExperimentRunPage() {
         >
           {showContent && (
             <>
-              <main ref={captureRef} className="flex flex-1 min-h-0 flex-col gap-0 px-6 py-2">
-                <div
-                  key={currentQuestionId}
-                  ref={questionPanelRef}
-                  className="experiment-question-swap w-full shrink-0 self-start h-max min-h-0 max-h-[52vh] overflow-y-auto"
-                >
-                  <QuestionPanel content={currentQuestion.content} minimal />
-                </div>
+              <main ref={captureRef} className="flex flex-1 min-h-0 flex-col overflow-hidden px-6 py-2">
+                <div className="relative flex flex-1 min-h-0 flex-col overflow-hidden">
+                  <div
+                    key={currentQuestionId}
+                    className="experiment-question-swap relative z-0 w-full shrink-0"
+                  >
+                    <QuestionPanel
+                      content={currentQuestion.content}
+                      minimal
+                      sectionRef={questionPanelRef}
+                    />
+                  </div>
 
-                <div className="flex-1 min-h-0 flex flex-col">
-                  <AnswerCanvas
-                    ref={answerCanvasRef}
+                  <div className="relative z-0 mt-2 flex min-h-0 flex-1 flex-col">
+                    <AnswerCanvas
+                      ref={answerCanvasRef}
+                      strokes={[]}
+                      onStrokesChange={() => {}}
+                      onRecordEvent={recordEvent}
+                      disabled={!allowDraw}
+                      minimal
+                      frameOnly
+                      sectionRef={canvasSectionRef}
+                    />
+                  </div>
+
+                  <ExperimentDrawingOverlay
+                    ref={drawingOverlayRef}
                     strokes={strokes}
                     onStrokesChange={handleStrokesChange}
                     onRecordEvent={recordEvent}
                     disabled={!allowDraw}
-                    minimal
-                    sectionRef={canvasSectionRef}
                   />
                 </div>
               </main>
@@ -383,7 +423,7 @@ export default function ExperimentRunPage() {
                 }`}
                 aria-hidden={!showRunKeysHint}
               >
-                F9 结束当前题 · F10 结束实验
+                F9 完成本题/继续 · F10 结束实验
               </div>
 
               <ExperimentGuideTour

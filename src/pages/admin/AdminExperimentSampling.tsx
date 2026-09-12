@@ -98,7 +98,9 @@ export default function AdminExperimentSampling() {
       const res = await adminSamplingOutputDetail(runId);
       if (res.errCode !== 0) throw new Error(res.errMsg);
       setDetail(res.data);
-      const names = ['fig1_trials_by_level.png', 'fig2_unique_by_level.png', 'fig3_usage_hist.png'];
+      const preferred = ['fig1_trials_by_level.png', 'fig2_unique_by_level.png', 'fig3_usage_hist.png'];
+      const available = new Set(res.data.files ?? []);
+      const names = preferred.filter((name) => available.has(name));
       const next: Record<string, string> = {};
       for (const name of names) {
         try {

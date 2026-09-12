@@ -27,6 +27,7 @@ function initSession(flowId: string, questions: QuestionItem[]): ExperimentSessi
       events: [],
     })),
     strokes: Object.fromEntries(questions.map((q) => [q.id, []])),
+    questionAnnotations: Object.fromEntries(questions.map((q) => [q.id, []])),
   };
 }
 
@@ -249,8 +250,22 @@ export function useExperimentSession(flowId: string, questions: QuestionItem[]) 
     [commitSession],
   );
 
+  const updateQuestionAnnotations = useCallback(
+    (questionId: string, strokes: DrawingStroke[]) => {
+      commitSession((prev) => ({
+        ...prev,
+        questionAnnotations: { ...(prev.questionAnnotations ?? {}), [questionId]: strokes },
+      }));
+    },
+    [commitSession],
+  );
+
   const getCurrentStrokes = useCallback((): DrawingStroke[] => {
     return sessionRef.current.strokes[currentQuestionId] ?? [];
+  }, [currentQuestionId]);
+
+  const getCurrentQuestionAnnotations = useCallback((): DrawingStroke[] => {
+    return sessionRef.current.questionAnnotations?.[currentQuestionId] ?? [];
   }, [currentQuestionId]);
 
   const getSessionSnapshot = useCallback((): ExperimentSession => {
@@ -284,7 +299,9 @@ export function useExperimentSession(flowId: string, questions: QuestionItem[]) 
     recordEvent,
     recordEventForQuestion,
     updateStrokes,
+    updateQuestionAnnotations,
     getCurrentStrokes,
+    getCurrentQuestionAnnotations,
     getSessionSnapshot,
     resetSession,
   };

@@ -76,6 +76,8 @@ export type ExperimentSession = {
   currentQuestionIndex: number;
   questions: ExperimentData[];
   strokes: Record<string, DrawingStroke[]>;
+  /** 题目区标注笔迹（与作答区 strokes 分离） */
+  questionAnnotations: Record<string, DrawingStroke[]>;
 };
 
 export type QuestionAnswerStat = {

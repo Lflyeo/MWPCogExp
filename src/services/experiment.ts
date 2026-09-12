@@ -23,6 +23,7 @@ export function experimentSessionSubmit(session: ExperimentSession) {
     status: session.status,
     questions: session.questions,
     strokes: session.strokes,
+    questionAnnotations: session.questionAnnotations ?? {},
   });
 }
 

@@ -20,17 +20,20 @@ type ExportPayload = {
   status?: string;
   questions?: ExperimentData[];
   strokes?: Record<string, unknown>;
+  questionAnnotations?: Record<string, unknown>;
 };
 
 function normalizePayload(sessionId: string, payload: ExportPayload | ExperimentSession) {
   if ('sessionId' in payload && 'questions' in payload && Array.isArray(payload.questions)) {
+    const raw = payload as ExportPayload;
     return {
-      sessionId: payload.sessionId,
-      startedAt: payload.startedAt ?? null,
-      endedAt: payload.endedAt ?? null,
-      status: payload.status ?? 'ended',
-      questions: payload.questions,
-      strokes: payload.strokes ?? {},
+      sessionId: raw.sessionId,
+      startedAt: raw.startedAt ?? null,
+      endedAt: raw.endedAt ?? null,
+      status: raw.status ?? 'ended',
+      questions: raw.questions ?? [],
+      strokes: raw.strokes ?? {},
+      questionAnnotations: raw.questionAnnotations ?? {},
     };
   }
   const session = payload as ExperimentSession;
@@ -41,6 +44,7 @@ function normalizePayload(sessionId: string, payload: ExportPayload | Experiment
     status: session.status,
     questions: session.questions,
     strokes: session.strokes,
+    questionAnnotations: session.questionAnnotations ?? {},
   };
 }
 
@@ -57,6 +61,7 @@ export function exportPayloadAsJson(sessionId: string, payload: ExportPayload | 
       screenSnapshot: q.screenSnapshot,
       events: q.events,
       strokes: (data.strokes as Record<string, unknown>)[q.questionId] ?? [],
+      questionAnnotations: (data.questionAnnotations as Record<string, unknown>)[q.questionId] ?? [],
     })),
   };
   const blob = new Blob([JSON.stringify(output, null, 2)], { type: 'application/json' });

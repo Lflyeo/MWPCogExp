@@ -92,11 +92,27 @@ export function ExperimentGuideTour({
   const [tooltipAnimKey, setTooltipAnimKey] = useState(0);
   const lastStepIndexRef = useRef(stepIndex);
   const remeasureRafRef = useRef<number | null>(null);
+  const remeasureTimeoutRef = useRef<number | null>(null);
   const { mounted, visible } = useOverlayTransition(open);
 
   const isCenter = !step?.anchor;
   const isLast = stepIndex >= steps.length - 1;
   const isFirst = stepIndex <= 0;
+
+  const applyMeasure = useCallback(() => {
+    if (!open || !step) return;
+    if (!step.anchor) {
+      setAnchorRect(null);
+      setTooltipPos(null);
+      return;
+    }
+    const el = anchors[step.anchor]?.current ?? null;
+    const rect = measureAnchor(el, step.id === 'enter-start');
+    setAnchorRect(rect);
+    if (rect && step.placement) {
+      setTooltipPos(clampTooltip(TOOLTIP_MAX_W, 200, step.placement, rect));
+    }
+  }, [anchors, open, step]);
 
   const remeasure = useCallback(
     (scrollIntoView = false) => {
@@ -108,15 +124,12 @@ export function ExperimentGuideTour({
       }
       const el = anchors[step.anchor]?.current ?? null;
       if (scrollIntoView && el) {
-        el.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+        // center：避免被首页 sticky 练习卡片遮住，导致光圈看起来打偏
+        el.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
       }
-      const rect = measureAnchor(el, step.id === 'enter-start');
-      setAnchorRect(rect);
-      if (rect && step.placement) {
-        setTooltipPos(clampTooltip(TOOLTIP_MAX_W, 200, step.placement, rect));
-      }
+      applyMeasure();
     },
-    [anchors, open, step],
+    [anchors, applyMeasure, open, step],
   );
 
   const scheduleRemeasure = useCallback(
@@ -124,12 +137,23 @@ export function ExperimentGuideTour({
       if (remeasureRafRef.current !== null) {
         window.cancelAnimationFrame(remeasureRafRef.current);
       }
+      if (remeasureTimeoutRef.current !== null) {
+        window.clearTimeout(remeasureTimeoutRef.current);
+        remeasureTimeoutRef.current = null;
+      }
       remeasureRafRef.current = window.requestAnimationFrame(() => {
         remeasure(scrollIntoView);
+        // 滚动后再测一次，拿到最终可视位置
+        if (scrollIntoView) {
+          remeasureTimeoutRef.current = window.setTimeout(() => {
+            applyMeasure();
+            remeasureTimeoutRef.current = null;
+          }, 60);
+        }
         remeasureRafRef.current = null;
       });
     },
-    [remeasure],
+    [applyMeasure, remeasure],
   );
 
   useLayoutEffect(() => {
@@ -154,6 +178,10 @@ export function ExperimentGuideTour({
       if (remeasureRafRef.current !== null) {
         window.cancelAnimationFrame(remeasureRafRef.current);
         remeasureRafRef.current = null;
+      }
+      if (remeasureTimeoutRef.current !== null) {
+        window.clearTimeout(remeasureTimeoutRef.current);
+        remeasureTimeoutRef.current = null;
       }
     };
   }, [anchors, scheduleRemeasure, step?.anchor, step?.id, stepIndex, anchorRemeasureKey]);

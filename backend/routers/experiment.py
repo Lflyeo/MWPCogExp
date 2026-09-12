@@ -80,7 +80,7 @@ GUIDE_QUESTIONS = [
 
 请在下方作答区随意画几笔，熟悉画笔工具。
 
-熟悉操作后，请按 **F9** 结束本题。""",
+熟悉操作后，请按 **F9** 完成本题；休息倒计时结束后再按 **F9** 进入下一题。""",
         "sort_order": 0,
     },
     {
@@ -88,9 +88,9 @@ GUIDE_QUESTIONS = [
         "title": "练习：题间休息",
         "content": """**【操作练习 · 第 2 题】**
 
-请再次在作答区书写。按 **F9** 结束本题后将进入题间休息；休息结束后即完成本次练习。
+请再次在作答区书写。按 **F9** 完成本题（最后一题不会自动结束）。
 
-也可随时按 **F10** 提前结束整个练习。""",
+若提示已是最后一题，请按 **F10** 结束整个练习。""",
         "sort_order": 1,
     },
 ]
@@ -113,7 +113,7 @@ def ensure_guide_experiment_flow(db: Session) -> int:
         flow = ExperimentFlow(
             id=GUIDE_FLOW_ID,
             name="实验操作练习",
-            description="熟悉个人信息确认、倒计时、作答、F9/F10 与题间休息等完整流程。",
+            description="熟悉个人信息确认、准备页 F9 开始、作答页 F9 完成本题、F10 结束实验与题间休息等完整流程。",
             sort_order=-1,
             enabled=True,
             rest_break_enabled=True,
@@ -123,7 +123,7 @@ def ensure_guide_experiment_flow(db: Session) -> int:
         added += 1
     else:
         flow.name = "实验操作练习"
-        flow.description = "熟悉个人信息确认、倒计时、作答、F9/F10 与题间休息等完整流程。"
+        flow.description = "熟悉个人信息确认、准备页 F9 开始、作答页 F9 完成本题、F10 结束实验与题间休息等完整流程。"
         flow.sort_order = -1
         flow.enabled = True
         flow.rest_break_enabled = True

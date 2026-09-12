@@ -46,6 +46,7 @@ class ExperimentSessionSubmitRequest(BaseModel):
     status: str = Field(default="ended", max_length=20)
     questions: List[Dict[str, Any]] = Field(default_factory=list)
     strokes: Dict[str, Any] = Field(default_factory=dict)
+    questionAnnotations: Dict[str, Any] = Field(default_factory=dict)
 
 
 class ExperimentSessionSubmitResponse(BaseModel):
