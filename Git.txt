@@ -13,24 +13,24 @@
 登陆你的 GitHub 账号 https://github.com（没有的话先注册一个）。
 右上角点击 “+” → 选择 “New repository”。
 填写：
-Repository name：建议和项目目录名类似，比如 MWPSolver-KS_Web。
+Repository name：建议和项目目录名类似，比如 MWPCogExp_Web。
 Visibility：Public 或 Private 自己选。
 不用勾选初始化 README、.gitignore、license（保持空仓库最简单）。
 点 “Create repository”。
 记住新仓库的地址（HTTPS 形式），形如：
-   https://github.com/你的用户名/MWPSolver-KS_Web.git
+   https://github.com/你的用户名/MWPCogExp_Web.git
 第三步：在本地项目里初始化 Git
 在 PowerShell 中做下面的操作（路径按你给的为准）：
-cd 'd:\research\MWPSolver-KS\MWPSolver-KS_Web'# 初始化 git 仓库git init# 可选：设置你的用户名和邮箱（只需设置一次）git config user.name "你的名字"git config user.email "你的邮箱@example.com"# 把所有文件加入暂存区git add .# 提交一次初始提交git commit -m "Initial commit"
+cd 'd:\research\MWPCogExp\MWPCogExp_Web'# 初始化 git 仓库git init# 可选：设置你的用户名和邮箱（只需设置一次）git config user.name "你的名字"git config user.email "你的邮箱@example.com"# 把所有文件加入暂存区git add .# 提交一次初始提交git commit -m "Initial commit"
 如果 git add . 时有你不想上传的文件（例如大文件、临时文件），可以提前在项目根目录新建 .gitignore 再执行 git add .。
 第四步：关联 GitHub 远程仓库并推送
-仍在项目目录 d:\research\MWPSolver-KS\MWPSolver-KS_Web 下，在 PowerShell 中执行（把 URL 换成你真实的 GitHub 仓库地址）：
-   git remote add origin https://github.com/你的用户名/MWPSolver-KS_Web.git   # 把当前分支命名为 main（GitHub 默认也是 main）   git branch -M main   # 第一次推送到 GitHub   git push -u origin main
+仍在项目目录 d:\research\MWPCogExp\MWPCogExp_Web 下，在 PowerShell 中执行（把 URL 换成你真实的 GitHub 仓库地址）：
+   git remote add origin https://github.com/你的用户名/MWPCogExp_Web.git   # 把当前分支命名为 main（GitHub 默认也是 main）   git branch -M main   # 第一次推送到 GitHub   git push -u origin main
 执行 git push 时，Git 会弹出登录/认证窗口或在命令行让你输入帐号信息，按提示登录 GitHub 即可（建议使用 GitHub 提供的登录方式或个人访问令牌 PAT）。
 推送成功后，在浏览器中打开你的仓库页面，就能看到项目所有文件了。
 第五步：以后如何更新代码到 GitHub
 以后你对项目有修改时，在 PowerShell 里（同一个目录）按这三步：
-cd 'd:\research\MWPSolver-KS\MWPSolver-KS_Web'
+cd 'd:\research\MWPCogExp\MWPCogExp_Web'
 git status           # 看看有哪些改动（可选）
 git add .            
 # 或者针对单个文件：

@@ -21,61 +21,6 @@ CREATE TABLE IF NOT EXISTS users (
     UNIQUE KEY uk_username (username)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户表';
 
--- 若表已存在且缺少新字段，可执行 migrate_user_profile.py 或以下语句（按需执行一次）
--- ALTER TABLE users ADD COLUMN real_name VARCHAR(64) COMMENT '姓名';
--- ALTER TABLE users ADD COLUMN age INT COMMENT '年龄';
--- ALTER TABLE users ADD COLUMN gender VARCHAR(16) COMMENT '性别';
--- ALTER TABLE users ADD COLUMN contact VARCHAR(128) COMMENT '联系方式（电话/微信号）';
--- ALTER TABLE users ADD COLUMN college VARCHAR(128) COMMENT '学院';
--- ALTER TABLE users ADD COLUMN major VARCHAR(128) COMMENT '专业';
--- ALTER TABLE users ADD COLUMN student_id VARCHAR(64) COMMENT '学号';
-
--- 创建解题记录表
-CREATE TABLE IF NOT EXISTS solution_records (
-    id VARCHAR(36) PRIMARY KEY COMMENT '记录ID',
-    question TEXT NOT NULL COMMENT '题目原文',
-    answer VARCHAR(500) COMMENT '简短答案',
-    solution LONGTEXT COMMENT '完整解题过程(Markdown)',
-    knowledge_points JSON COMMENT '知识点列表',
-    semantic_contexts JSON COMMENT '语义情境列表',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    user_id VARCHAR(36) COMMENT '用户ID',
-    INDEX idx_created_at (created_at),
-    INDEX idx_user_id (user_id),
-    CONSTRAINT fk_solution_records_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='解题记录表';
-
--- 创建收藏表
-CREATE TABLE IF NOT EXISTS favorites (
-    id VARCHAR(36) PRIMARY KEY COMMENT '收藏ID',
-    record_id VARCHAR(36) NOT NULL COMMENT '解题记录ID',
-    user_id VARCHAR(36) NOT NULL COMMENT '用户ID',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '收藏时间',
-    UNIQUE KEY uk_user_record (user_id, record_id),
-    INDEX idx_record_id (record_id),
-    INDEX idx_user_id (user_id),
-    INDEX idx_created_at (created_at),
-    CONSTRAINT fk_favorites_record_id FOREIGN KEY (record_id) REFERENCES solution_records(id) ON DELETE CASCADE,
-    CONSTRAINT fk_favorites_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='收藏表';
-
--- 解题模型配置表（管理员可增删改，前端 /solve/models 从此表读取，实现实时更新）
-CREATE TABLE IF NOT EXISTS solve_models (
-    id INT AUTO_INCREMENT PRIMARY KEY COMMENT '自增ID',
-    model_id VARCHAR(128) NOT NULL COMMENT '模型ID，如 gpt-5.2',
-    display_name VARCHAR(128) NOT NULL COMMENT '展示名称',
-    sort_order INT DEFAULT 0 COMMENT '排序，越小越靠前',
-    enabled TINYINT(1) DEFAULT 1 COMMENT '是否启用 1=是 0=否',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE KEY uk_model_id (model_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='解题可选模型表';
-
--- 系统配置表
-CREATE TABLE IF NOT EXISTS system_settings (
-    `key`   VARCHAR(64) PRIMARY KEY COMMENT '配置键，如 UNIAPI_BASE_URL',
-    `value` TEXT COMMENT '配置值，文本格式'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='系统配置表';
-
 -- 认知实验流表
 CREATE TABLE IF NOT EXISTS experiment_flows (
     id VARCHAR(64) PRIMARY KEY COMMENT '实验流ID',
@@ -116,7 +61,7 @@ CREATE TABLE IF NOT EXISTS experiment_sessions (
     INDEX idx_experiment_sessions_flow_id (flow_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='认知实验会话数据表';
 
--- 数学应用题题库（来自 MWPs.json，可用 python import_mwps.py 导入）
+-- 数学应用题题库（抽样辅助用，可用 python import_mwps.py 导入）
 CREATE TABLE IF NOT EXISTS mwps (
     id INT PRIMARY KEY COMMENT '题目ID（数据集原始 id）',
     raw_text TEXT NOT NULL COMMENT '题目原文',
@@ -144,9 +89,3 @@ CREATE TABLE IF NOT EXISTS mwps (
     INDEX idx_mwps_composite_score (composite_score),
     INDEX idx_mwps_answer_quality (answer_quality)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='数学应用题题库';
-
--- 若从旧版升级，可酌情执行以下迁移（执行前请备份）：
--- CREATE TABLE IF NOT EXISTS experiment_flows (...);  -- 见上方 DDL
--- ALTER TABLE experiment_questions ADD COLUMN flow_id VARCHAR(64) NOT NULL DEFAULT 'flow-default' AFTER id;
--- ALTER TABLE experiment_questions DROP PRIMARY KEY, ADD PRIMARY KEY (flow_id, id);
--- ALTER TABLE experiment_sessions ADD COLUMN flow_id VARCHAR(64) NULL AFTER id;

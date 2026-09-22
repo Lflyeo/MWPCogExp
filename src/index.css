@@ -46,7 +46,7 @@ body {
   transition: opacity 300ms;
 }
 
-/* 为MWPSolver-KS特别设计的样式 */
+/* MWPCogExp 全局补充样式 */
 .feature-card {
   transition: all 0.3s ease;
 }

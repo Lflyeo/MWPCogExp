@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from config import settings
 from database import SessionLocal
-from routers import records, favorites, solve, auth, admin, experiment, mwps, admin_sampling
+from routers import auth, admin, experiment, mwps, admin_sampling
 from migrate_experiment import migrate_experiment_schema
 from migrate_user_profile import migrate_user_profile_schema
 from migrate_mwps import migrate_mwps_schema
@@ -19,12 +19,9 @@ from migrate_mwps import migrate_mwps_schema
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """应用启动时：若解题模型表为空，则从环境变量写入初始数据，使管理端与用户端共用同一数据源。"""
+    """应用启动时：迁移实验/用户资料/题库表结构，并确保默认实验流与操作练习流可用。"""
     db = SessionLocal()
     try:
-        n = solve.seed_solve_models_from_env(db)
-        if n > 0:
-            print(f"[startup] Seeded {n} solve model(s) from env into solve_models table.")
         migrated = migrate_experiment_schema(db)
         if migrated:
             print(f"[startup] Experiment schema migrated: {', '.join(migrated)}")
@@ -43,18 +40,15 @@ async def lifespan(app: FastAPI):
     finally:
         db.close()
     yield
-    # shutdown if needed
-    pass
 
 
 app = FastAPI(
-    title="MathPro 解题记录API",
-    description="数学应用题解题记录服务",
+    title="MWPCogExp API",
+    description="数学解题认知实验系统 API",
     version="1.0.0",
     lifespan=lifespan,
 )
 
-# 配置CORS（先添加的中间件后执行，所以 CORS 要最后 add 才能最先处理请求）
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
@@ -65,24 +59,19 @@ app.add_middleware(
     expose_headers=["*"],
 )
 
-# 注册路由
 app.include_router(auth.router, prefix=settings.API_V1_PREFIX)
-app.include_router(records.router, prefix=settings.API_V1_PREFIX)
-app.include_router(favorites.router, prefix=settings.API_V1_PREFIX)
-app.include_router(solve.router, prefix=settings.API_V1_PREFIX)
 app.include_router(admin.router, prefix=settings.API_V1_PREFIX)
 app.include_router(admin_sampling.router, prefix=settings.API_V1_PREFIX)
 app.include_router(experiment.router, prefix=settings.API_V1_PREFIX)
 app.include_router(mwps.router, prefix=settings.API_V1_PREFIX)
 
-# 静态文件：头像等上传文件（挂载在 /api/uploads，与 API 同源）
 _upload_dir = _backend_dir / settings.UPLOAD_DIR
 _upload_dir.mkdir(parents=True, exist_ok=True)
 app.mount(f"/{settings.API_V1_PREFIX.strip('/')}/uploads", StaticFiles(directory=str(_upload_dir)), name="uploads")
 
 @app.get("/")
 def root():
-    return {"message": "MathPro 解题记录API服务", "version": "1.0.0"}
+    return {"message": "MWPCogExp 数学解题认知实验系统 API", "version": "1.0.0"}
 
 @app.get("/health")
 def health():

@@ -1,132 +1,108 @@
-# MathPro 后端服务（FastAPI + MySQL）
+# MWPCogExp 后端（FastAPI + MySQL）
 
-MWPSolver-KS 的后端 API 服务，提供：
+数学解题认知实验系统 API：用户认证、个人资料、认知实验流/题目/会话，以及管理端用户管理、实验数据与可选抽样。
 
-- 用户端：注册/登录（JWT）、解题（UniAPI）、解题记录、收藏
-- 管理端：用户管理、解题模型管理、UniAPI 配置管理、记录与收藏管理
+**不包含**解题大模型、知识点/语义识别、解题记录与收藏接口。
 
 ---
 
 ## 技术栈
 
-- **框架**：FastAPI
-- **数据库**：MySQL（PyMySQL 驱动）
-- **ORM**：SQLAlchemy 2
-- **数据校验**：Pydantic 2
-- **HTTP 客户端**：httpx（调用 UniAPI 大模型）
-- **认证**：JWT（PyJWT）
-- **环境配置**：python-dotenv
-- **密码哈希**：bcrypt
-- **表单/文件上传解析**：python-multipart（用于头像上传等接口）
+- **框架**：FastAPI  
+- **数据库**：MySQL（PyMySQL）  
+- **ORM**：SQLAlchemy 2  
+- **校验**：Pydantic 2  
+- **认证**：JWT（PyJWT）+ bcrypt  
+- **配置**：python-dotenv  
+- **上传**：python-multipart  
 
 ---
 
-## 目录结构（与当前版本保持一致）
+## 目录结构
 
 ```text
 backend/
-├─ main.py                 # FastAPI 入口，注册路由，挂载 uploads，启动时可 seed 模型表
-├─ config.py               # 配置（DB、JWT、UniAPI、CORS、管理员密钥等）
-├─ database.py             # SQLAlchemy engine/session/base
-├─ init_db.sql             # MySQL 初始化脚本（表结构 + 外键约束）
-├─ requirements.txt        # Python 依赖
-├─ .env.example            # 环境变量示例（不要提交真实 .env）
-├─ models/                 # ORM 模型
-│  ├─ user.py              # users
-│  ├─ record.py            # solution_records
-│  ├─ favorite.py          # favorites
-│  ├─ solve_model.py       # solve_models
-│  └─ system_setting.py    # system_settings
-├─ schemas/                # Pydantic schemas
-│  ├─ auth.py
-│  ├─ solve.py
-│  ├─ record.py
-│  ├─ favorite.py
-│  └─ admin.py
-└─ routers/                # API 路由
-   ├─ auth.py              # /api/auth/*
-   ├─ solve.py             # /api/solve/*
-   ├─ records.py           # /api/records/*
-   ├─ favorites.py         # /api/favorites/*
-   └─ admin.py             # /api/admin/*
+├─ main.py                 # 入口：路由、uploads、启动迁移/种子
+├─ config.py               # DB / JWT / CORS / ADMIN_SECRET
+├─ database.py
+├─ init_db.sql             # 建库建表
+├─ requirements.txt
+├─ .env.example
+├─ user_profile.py
+├─ models/
+│  ├─ user.py
+│  ├─ experiment_flow.py
+│  ├─ experiment_question.py
+│  ├─ experiment_session.py
+│  └─ mwp.py               # 题库（抽样辅助）
+├─ schemas/
+│  ├─ auth.py / admin.py / experiment.py / mwp.py
+├─ routers/
+│  ├─ auth.py              # /api/auth/*
+│  ├─ experiment.py        # /api/experiment/*
+│  ├─ admin.py             # /api/admin/*（用户 + 实验）
+│  ├─ admin_sampling.py    # /api/admin/experiment-sampling/*
+│  └─ mwps.py              # 题库只读（抽样用）
+└─ sampling/               # 分层覆盖抽样流水线
 ```
 
 ---
 
 ## 环境要求
 
-- Python 3.10+（推荐）
-- MySQL 5.7+ / 8.0+
+- Python 3.10+  
+- MySQL 5.7+ / 8.0+  
 
 ---
 
 ## 配置（.env）
-
-复制示例文件并修改：
 
 ```bash
 cd backend
 cp .env.example .env
 ```
 
-关键配置项（见 `config.py`）：
+主要项（见 `config.py`）：
 
-- **数据库**
-  - `DB_HOST` / `DB_PORT` / `DB_USER` / `DB_PASSWORD` / `DB_NAME`
-- **UniAPI**
-  - `UNIAPI_BASE_URL`（可选）
-  - `UNIAPI_TOKEN`（必填，否则解题/分析接口会返回提示）
-  - `UNIAPI_MODEL`（默认解题模型）
-  - `UNIAPI_MODEL_KNOWLEDGE` / `UNIAPI_MODEL_SEMANTIC`（可选：专用识别模型）
-  - `UNIAPI_SOLVE_MODELS`（可选：当 DB 的 `solve_models` 为空时，用它回退/seed）
-- **JWT**
-  - `JWT_SECRET`（生产环境必须修改）
-  - `JWT_EXPIRE_MINUTES`
-- **管理员**
-  - `ADMIN_SECRET`（访问管理端 API 的密钥）
+| 变量 | 说明 |
+|------|------|
+| `DB_HOST` / `DB_PORT` / `DB_USER` / `DB_PASSWORD` / `DB_NAME` | 数据库 |
+| `JWT_SECRET` / `JWT_EXPIRE_MINUTES` | 用户 JWT（生产务必改密钥） |
+| `ADMIN_SECRET` | 管理端 `X-Admin-Token` / Bearer |
+| `UPLOAD_DIR` | 上传目录（相对 backend） |
 
-> 说明：UniAPI 的 Base URL / Token / 默认模型等在运行时**优先从 `system_settings` 表读取**；环境变量作为默认值/回退值。
+本地 MySQL 步骤见 [SETUP_LOCAL_MYSQL.md](./SETUP_LOCAL_MYSQL.md)。
 
 ---
 
 ## 初始化数据库
-
-在 MySQL 中执行 `init_db.sql`：
 
 ```bash
 cd backend
 mysql -u root -p < init_db.sql
 ```
 
-当前版本 `init_db.sql` 会创建并维护以下表：
+表：
 
-- `users`：用户（用户名、密码哈希、昵称、头像等）
-- `solution_records`：解题记录（含 `user_id` 外键，用户删除后 `SET NULL`）
-- `favorites`：收藏（含 `user_id` 与 `record_id` 外键，且 `(user_id, record_id)` 唯一）
-- `solve_models`：解题可选模型（供用户端下拉与管理端维护）
-- `system_settings`：系统配置（UniAPI Base URL/Token/默认模型等）
+- `users` — 用户与个人资料  
+- `experiment_flows` — 实验流  
+- `experiment_questions` — 流内题目  
+- `experiment_sessions` — 实验会话 JSON  
+- `mwps` — 题库（可选，供抽样导入）  
 
 ---
 
-## 启动服务
-
-安装依赖：
+## 启动
 
 ```bash
 cd backend
 pip install -r requirements.txt
-```
-
-启动（开发推荐）：
-
-```bash
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-启动后：
-
-- 健康检查：`GET /health`
-- API 文档：`/docs`
+- 健康检查：`GET /health`  
+- API 文档：`/docs`  
+- 根路径：`GET /` → MWPCogExp API 说明  
 
 ---
 
@@ -134,53 +110,36 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
 ### 用户端
 
-- **认证**
-  - `POST /api/auth/register`
-  - `POST /api/auth/login`
-  - `GET /api/auth/profile`（需登录）
-  - `PATCH /api/auth/profile`（需登录）
-  - `POST /api/auth/avatar/upload`（需登录）
-- **解题**
-  - `GET /api/solve/models`：获取可选解题大模型列表（优先 DB，空则回退 env）
-  - `POST /api/solve/analyze`：识别知识点与语义情境
-  - `POST /api/solve`：解题（可携带 model/knowledge_points/semantic_contexts）
-- **记录**
-  - `POST /api/records/save`（需登录）
-  - `GET /api/records/list`
-  - `GET /api/records/detail?id=...`
-  - `DELETE /api/records/remove?id=...`
-- **收藏**
-  - `POST /api/favorites/add`（需登录）
-  - `DELETE /api/favorites/remove?record_id=...`（需登录）
-  - `GET /api/favorites/list`（需登录）
-  - `GET /api/favorites/check?record_id=...`
+- **认证**  
+  - `POST /api/auth/register`  
+  - `POST /api/auth/login`  
+  - `GET|PATCH /api/auth/profile`  
+  - `POST /api/auth/avatar/upload`  
+- **认知实验**  
+  - `GET /api/experiment/flows`  
+  - `GET /api/experiment/flows/{flow_id}/questions`  
+  - `POST /api/experiment/sessions`（提交会话）  
+  - 题目图片等静态资源经 `/api/uploads/...`  
 
-### 管理端（需管理员密钥）
+### 管理端
 
-管理员认证方式：
+Header：`X-Admin-Token: <ADMIN_SECRET>` 或 `Authorization: Bearer <ADMIN_SECRET>`。
 
-- Header `X-Admin-Token: <ADMIN_SECRET>` 或
-- Header `Authorization: Bearer <ADMIN_SECRET>`
-
-主要接口（见 `routers/admin.py`）：
-
-- 用户管理：列表/新增/编辑/删除/重置密码/上传头像
-- UniAPI 配置：读取/更新（写入 `system_settings`）
-- 解题模型表：CRUD（`solve_models`）
-- 记录与收藏：列表/详情/删除
+- 用户：列表 / 详情 / 新增 / 编辑 / 删 / 重置密码 / 头像  
+- 实验流与题目：CRUD、题目图片上传  
+- 实验会话：列表 / 详情 / 删除  
+- 抽样（可选）：`/api/admin/experiment-sampling/*` 运行、产物、导入到实验流  
 
 ---
 
 ## CORS
 
-默认允许常见的本地开发来源（见 `config.py` 的 `CORS_ORIGINS` 与 `CORS_ORIGIN_REGEX`）。
-前端默认端口为 **3000**。
+默认允许本地常见前端源（见 `config.py`）。前端开发默认端口 **3000**。
 
 ---
 
-## 说明与注意事项
+## 注意事项
 
-- 生产环境务必修改 `.env` 中的 `JWT_SECRET` 与 `ADMIN_SECRET`
-- 不要将真实 `backend/.env` 提交到仓库
-- 头像等上传文件会存放在 `backend/uploads/`，并通过 `/api/uploads/...` 提供静态访问
-
+- 生产环境务必修改 `JWT_SECRET`、`ADMIN_SECRET`  
+- 勿提交真实 `backend/.env`  
+- 上传文件在 `backend/uploads/`，经 `/api/uploads/...` 访问  

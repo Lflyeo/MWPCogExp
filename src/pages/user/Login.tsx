@@ -37,7 +37,7 @@ export default function Login() {
       <div className="w-full max-w-md">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8">
           <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-gray-800">MWPSolver-KS</h1>
+            <h1 className="text-2xl font-bold text-gray-800">MWPCogExp</h1>
             <p className="text-gray-500 mt-1">登录您的账号</p>
           </div>
           <form onSubmit={handleSubmit} className="space-y-5">

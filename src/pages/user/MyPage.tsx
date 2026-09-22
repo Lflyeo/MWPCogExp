@@ -1,11 +1,9 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Edit, History, Heart, HelpCircle, MessageCircle, LogOut, ChevronRight, X, Upload, Image as ImageIcon } from 'lucide-react';
+import { Edit, FlaskConical, LogOut, ChevronRight, X, Upload, Image as ImageIcon } from 'lucide-react';
 import { useContext } from 'react';
 import { AuthContext } from '@/contexts/authContext';
 import { toast } from 'sonner';
-import { recordsList, recordsStats } from '@/services/records';
-import { favoritesList } from '@/services/favorites';
 import { updateProfile, getStoredToken, setStoredAuth, uploadAvatar, authUserFromProfile } from '@/services/auth';
 import { getAssetUrl } from '@/lib/api';
 import { UserProfileFormFields, UserProfileReadonly } from '@/components/UserProfileFields';
@@ -14,19 +12,8 @@ import type { UserProfileFields } from '@/types/userProfile';
 
 const DEFAULT_AVATAR = '';
 
-interface LocalStats {
-  daysOfLearning: number;
-  stats: { problemCount: number; favoriteCount: number };
-}
-
-const defaultStats: LocalStats = {
-  daysOfLearning: 0,
-  stats: { problemCount: 0, favoriteCount: 0 },
-};
-
 export default function MyPage() {
   const { user: authUser, logout, setUser } = useContext(AuthContext);
-  const [userInfo, setUserInfo] = useState<LocalStats>(defaultStats);
   const [editOpen, setEditOpen] = useState(false);
   const [editAvatarUrl, setEditAvatarUrl] = useState('');
   const [editProfile, setEditProfile] = useState<UserProfileFields>(profileFromUser(null));
@@ -44,23 +31,6 @@ export default function MyPage() {
     setEditProfile(profileFromUser(authUser));
     setEditOpen(true);
   }, [authUser]);
-
-  useEffect(() => {
-    Promise.all([
-      recordsList({ page: 1, pageSize: 1 }),
-      favoritesList({ page: 1, pageSize: 1 }),
-      recordsStats(),
-    ]).then(([recordsRes, favoritesRes, statsRes]) => {
-      const problemTotal = (recordsRes as { total?: number }).total ?? 0;
-      const favoriteTotal = (favoritesRes as { total?: number }).total ?? 0;
-      const daysOfLearning = statsRes?.data?.daysOfLearning ?? 0;
-      setUserInfo((prev) => ({
-        ...prev,
-        stats: { problemCount: problemTotal, favoriteCount: favoriteTotal },
-        daysOfLearning,
-      }));
-    }).catch(() => {});
-  }, []);
 
   const handleSaveProfile = async () => {
     setSaving(true);
@@ -119,7 +89,6 @@ export default function MyPage() {
                     编辑资料
                   </button>
                 </div>
-                <p className="text-sm text-gray-500 mt-0.5">学习的第 {userInfo.daysOfLearning} 天</p>
                 {profileSummary && <p className="text-sm text-gray-500 mt-1">{profileSummary}</p>}
                 <UserProfileReadonly user={authUser} />
               </div>
@@ -222,40 +191,13 @@ export default function MyPage() {
           )}
 
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <Link to="/problem-records" className={`${menuItemClass} border-b border-gray-100`}>
+            <Link to="/experiment" className={`${menuItemClass} border-b border-gray-100`}>
               <div className="flex items-center gap-3 min-w-0">
-                <div className={`${menuIconWrap} bg-blue-50`}><History className="text-blue-600" size={20} /></div>
-                <span className="font-medium text-gray-800">解题记录</span>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="text-sm text-gray-500">{userInfo.stats?.problemCount ?? 0}</span>
-                <ChevronRight size={18} className="text-gray-400" />
-              </div>
-            </Link>
-            <Link to="/my-favorites" className={`${menuItemClass} border-b border-gray-100`}>
-              <div className="flex items-center gap-3 min-w-0">
-                <div className={`${menuIconWrap} bg-amber-50`}><Heart className="text-amber-600" size={20} /></div>
-                <span className="font-medium text-gray-800">我的收藏</span>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="text-sm text-gray-500">{userInfo.stats?.favoriteCount ?? 0}</span>
-                <ChevronRight size={18} className="text-gray-400" />
-              </div>
-            </Link>
-            <button type="button" className={`${menuItemClass} border-b border-gray-100 w-full`}>
-              <div className="flex items-center gap-3 min-w-0">
-                <div className={`${menuIconWrap} bg-violet-50`}><HelpCircle className="text-violet-600" size={20} /></div>
-                <span className="font-medium text-gray-800">常见问题</span>
+                <div className={`${menuIconWrap} bg-blue-50`}><FlaskConical className="text-blue-600" size={20} /></div>
+                <span className="font-medium text-gray-800">认知实验</span>
               </div>
               <ChevronRight size={18} className="text-gray-400 shrink-0" />
-            </button>
-            <button type="button" className={`${menuItemClass} border-b border-gray-100 w-full`}>
-              <div className="flex items-center gap-3 min-w-0">
-                <div className={`${menuIconWrap} bg-emerald-50`}><MessageCircle className="text-emerald-600" size={20} /></div>
-                <span className="font-medium text-gray-800">联系客服</span>
-              </div>
-              <ChevronRight size={18} className="text-gray-400 shrink-0" />
-            </button>
+            </Link>
             <button type="button" className={`${menuItemClass} text-red-600 w-full`} onClick={handleLogout}>
               <div className="flex items-center gap-3 min-w-0">
                 <div className={`${menuIconWrap} bg-red-50`}><LogOut className="text-red-500" size={20} /></div>

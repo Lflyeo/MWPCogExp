@@ -10,26 +10,15 @@ class Settings:
     DB_USER = os.getenv("DB_USER", "root")
     DB_PASSWORD = os.getenv("DB_PASSWORD", "")
     DB_NAME = os.getenv("DB_NAME", "mathpro_db")
-    
+
     # 数据库连接URL
     DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}?charset=utf8mb4"
-    
+
     # API配置
     API_V1_PREFIX = "/api"
-    
-    # UniAPI 大模型解题（Base URL 与 Token 实际运行时优先从 system_settings 表读取，
-    # 这里的环境变量仅作为「后端默认值/回退值」，不再在代码中写死具体地址和密钥）
-    UNIAPI_BASE_URL = os.getenv("UNIAPI_BASE_URL", "")
-    UNIAPI_TOKEN = os.getenv("UNIAPI_TOKEN", "")
-    UNIAPI_MODEL = os.getenv("UNIAPI_MODEL", "gpt-5.2")
-    # 可选解题大模型列表（逗号分隔），用于前端下拉与接口校验，如：gpt-5.2,gpt-4o,claude-3-5-sonnet
-    UNIAPI_SOLVE_MODELS = os.getenv("UNIAPI_SOLVE_MODELS", "gpt-5.2,gpt-4o,qwen2.5-72b-instruct,deepseek-v3")
-    # 知识点识别、语义情境识别专用模型（不配置则与解题使用同一模型）
-    UNIAPI_MODEL_KNOWLEDGE = os.getenv("UNIAPI_MODEL_KNOWLEDGE", "") or None
-    UNIAPI_MODEL_SEMANTIC = os.getenv("UNIAPI_MODEL_SEMANTIC", "") or None
-    
+
     # JWT 认证
-    JWT_SECRET = os.getenv("JWT_SECRET", "mathpro-jwt-secret-change-in-production")
+    JWT_SECRET = os.getenv("JWT_SECRET", "mwpcogexp-jwt-secret-change-in-production")
     JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
     JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", 60 * 24 * 7))  # 默认 7 天
 
@@ -53,6 +42,6 @@ class Settings:
     CORS_ORIGIN_REGEX = r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
 
     # 管理员端：密钥校验，请求头 X-Admin-Token 或 Authorization: Bearer <ADMIN_SECRET>
-    ADMIN_SECRET = os.getenv("ADMIN_SECRET", "MWPSolver-KS-admin-secret-change-in-production")
+    ADMIN_SECRET = os.getenv("ADMIN_SECRET", "MWPCogExp-admin-secret-change-in-production")
 
 settings = Settings()

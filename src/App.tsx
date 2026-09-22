@@ -1,21 +1,11 @@
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Home from "@/pages/user/Home";
 import MyPage from "@/pages/user/MyPage";
-import ProblemRecords from "@/pages/user/ProblemRecords";
-import MyFavorites from "@/pages/user/MyFavorites";
-import ProblemResult from "@/pages/user/ProblemResult";
-import ProblemInput from "@/pages/user/ProblemInput";
 import Login from "@/pages/user/Login";
 import Register from "@/pages/user/Register";
 import AdminLogin from "@/pages/admin/AdminLogin";
 import AdminLayout from "@/pages/admin/AdminLayout";
 import AdminUsers from "@/pages/admin/AdminUsers";
-import AdminModels from "@/pages/admin/AdminModels";
-import AdminKnowledgeModels from "@/pages/admin/AdminKnowledgeModels";
-import AdminSemanticModels from "@/pages/admin/AdminSemanticModels";
-import AdminRecords from "@/pages/admin/AdminRecords";
-import AdminFavorites from "@/pages/admin/AdminFavorites";
-import AdminTest from "@/pages/admin/AdminTest";
 import AdminExperimentQuestions from "@/pages/admin/AdminExperimentQuestions";
 import AdminExperimentData from "@/pages/admin/AdminExperimentData";
 import AdminExperimentSampling from "@/pages/admin/AdminExperimentSampling";
@@ -51,24 +41,14 @@ export default function App() {
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<Navigate to="/admin/users" replace />} />
         <Route path="users" element={<AdminUsers />} />
-        <Route path="models" element={<AdminModels />} />
-        <Route path="knowledge-models" element={<AdminKnowledgeModels />} />
-        <Route path="semantic-models" element={<AdminSemanticModels />} />
-        <Route path="records" element={<AdminRecords />} />
-        <Route path="favorites" element={<AdminFavorites />} />
         <Route path="experiment-flows" element={<AdminExperimentQuestions />} />
         <Route path="experiment-sampling" element={<AdminExperimentSampling />} />
         <Route path="experiment-data" element={<AdminExperimentData />} />
-        <Route path="test" element={<AdminTest />} />
       </Route>
       <Route path="/" element={<Layout />}>
         <Route path="/" element={<Home />} />
         <Route path="/experiment" element={<ExperimentHomePage />} />
         <Route path="/mypage" element={<ProtectedRoute><MyPage /></ProtectedRoute>} />
-        <Route path="/problem-records" element={<ProtectedRoute><ProblemRecords /></ProtectedRoute>} />
-        <Route path="/my-favorites" element={<ProtectedRoute><MyFavorites /></ProtectedRoute>} />
-        <Route path="/problem-result/:id" element={<ProtectedRoute><ProblemResult /></ProtectedRoute>} />
-        <Route path="/problem-input" element={<ProtectedRoute><ProblemInput /></ProtectedRoute>} />
       </Route>
     </Routes>
   );
