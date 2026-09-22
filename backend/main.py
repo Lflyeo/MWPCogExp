@@ -44,7 +44,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="MWPCogExp API",
-    description="数学解题认知实验系统 API",
+    description="面向认知实验的数学应用题求解模拟系统 API",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -71,7 +71,7 @@ app.mount(f"/{settings.API_V1_PREFIX.strip('/')}/uploads", StaticFiles(directory
 
 @app.get("/")
 def root():
-    return {"message": "MWPCogExp 数学解题认知实验系统 API", "version": "1.0.0"}
+    return {"message": "MWPCogExp 面向认知实验的数学应用题求解模拟系统 API", "version": "1.0.0"}
 
 @app.get("/health")
 def health():

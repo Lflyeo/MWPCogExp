@@ -44,7 +44,7 @@ function ExperimentPageHeader() {
         <ArrowLeft size={20} />
       </button>
       <div className="min-w-0">
-        <h1 className="text-xl font-bold text-gray-800">数学解题认知实验</h1>
+        <h1 className="text-xl font-bold text-gray-800">面向认知实验的数学应用题求解模拟系统</h1>
         <p className="text-sm text-gray-500 truncate">建议先完成操作练习，再选择正式实验流</p>
       </div>
     </div>

@@ -1,6 +1,6 @@
 # MWPCogExp Backend (FastAPI + MySQL)
 
-API for the Math Word Problem Cognitive Experiment System: user auth, profiles, experiment flows / questions / sessions, plus admin user management, session data, and optional sampling.
+API for MWPCogExp (Math Word Problem Solving Simulation System for Cognitive Experiments): user auth, profiles, experiment flows / questions / sessions, plus admin user management, session data, and optional sampling.
 
 **Does not include** LLM solving, knowledge-point / semantic recognition, solving records, or favorites.
 

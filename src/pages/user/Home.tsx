@@ -8,7 +8,7 @@ export default function Home() {
         <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-3xl p-8 md:p-12 shadow-sm border border-blue-100">
           <div className="max-w-2xl">
             <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-3">
-              数学解题认知实验系统
+              面向认知实验的数学应用题求解模拟系统
             </h1>
             <h2 className="text-lg md:text-xl text-blue-600 font-medium mb-5">
               MWPCogExp V1.0

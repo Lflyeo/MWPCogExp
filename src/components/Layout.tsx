@@ -33,7 +33,7 @@ export function Layout() {
                 <>
                   <span className="hidden sm:inline text-gray-300 shrink-0">|</span>
                   <span className="text-lg font-semibold text-gray-800 whitespace-nowrap truncate">
-                    数学解题认知实验
+                    面向认知实验的数学应用题求解模拟系统
                   </span>
                 </>
               )}
